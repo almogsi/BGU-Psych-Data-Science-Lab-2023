@@ -1,0 +1,81 @@
+---
+title: "Psychological Data Science Lab"
+subtitle: "L0: Intro"
+author: Almog Simchon
+footer: "Psychological Data Science Lab L0" 
+format:
+  revealjs:
+    incremental: true
+    slide-number: true
+    logo: misc/just-logo.png
+    chalkboard: true
+    
+---
+
+## This Course {.smaller}
+
+-   What is the role of data science in psychological science?
+-   Practice, practice, practice
+    -   Dataviz 📊 ❤️
+    -   APIs social media data
+    -   Text analysis
+    -   Pre-processing
+    -   Model fitting
+    -   Model selection
+-   Final Project
+
+## Technicalities
+
+-   You all need to present a TidyTuesday Project for \~5 minutes
+-   Attendance and participation = 50% of your grade (25% attendance, 25% participation bi-weekly assignments)
+-   Final project = 50%
+-   End of the day, bring coffee with you
+-   almogsi\@post.bgu.ac.il
+-   Office hours: "Wednesdays at 12pm" aka just email me
+
+## How does this work?
+
+-   We have bi-weekly tasks to hand-in
+-   Your first task begins next week
+-   You must submit your work in a tidy manner. it is encouraged:
+    -   To use github (familiarize with collaborative work)
+    -   To use R Projects (familiarize you with tidy projects)
+    -   To use Quarto in building the reports
+
+## Will I end up a data scientist after this course? {.smaller}
+
+-   No.
+-   But you will develop solid foundations in:
+    -   Handling data
+    -   Wrangling it
+    -   Developing and executing a machine learning project from scratch to production and communication
+    -   Dataviz 📊 🔥 ❤️
+    -   Natural language processing
+    -   Social media analysis
+
+## Let's get down to business
+
+```{r}
+#| echo: true
+#| output-location: slide
+library(httr)
+library(jsonlite)
+library(imager)
+
+# Specify the API endpoint
+api_endpoint <- "https://www.reddit.com/r/DataScienceMemes/random.json"
+
+# Make an HTTP GET request to the API endpoint
+response <- GET(api_endpoint, user_agent("my_bot/0.0.1"))
+
+# Parse the response content as JSON
+content <- content(response, "text")
+parsed_content <- fromJSON(content)
+
+# Extract the URL of the random image
+image_url <- parsed_content$data$children[[1]]$data$url
+
+#plot image
+plot(load.image(image_url), axes=FALSE, frame.plot=TRUE) 
+
+```
