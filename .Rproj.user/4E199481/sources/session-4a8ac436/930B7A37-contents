@@ -1,0 +1,2210 @@
+---
+title: "Psychological Data Science Lab"
+subtitle: "L2: Fundamentals of Data Visualization"
+author: Almog Simchon
+footer: "Psychological Data Science Lab L2" 
+format:
+  revealjs:
+    incremental: false
+    slide-number: true
+    logo: misc/just-logo.png
+    chalkboard: true
+    smaller: true
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+# From data to visualization
+
+These slides and figures were taken or adapted from 'Fundamentals of Data Visualization' by Claus O. Wilke.
+
+## Visualizing data: Mapping data onto aesthetics {#aesthetic-mapping}
+
+The key insight is the following: All data visualizations map data
+values into quantifiable features of the resulting graphic. We refer to
+these features as *aesthetics.*
+
+::: notes
+Whenever we visualize data, we take data values and convert them in a
+systematic and logical way into the visual elements that make up the
+final graphic. Even though there are many different types of data
+visualizations, and on first glance a scatter plot, a pie chart, and a
+heatmap don't seem to have much in common, all these visualizations can
+be described with a common language that captures how data values are
+turned into blobs of ink on paper or colored pixels on screen.
+:::
+
+## Aesthetics and types of data
+
+Commonly used aesthetics in data visualization: position, shape, size,
+color, line width, line type. Some of these aesthetics can represent
+both continuous and discrete data (position, size, line width, color)
+while others can usually only represent discrete data (shape, line
+type).
+
+```{r common-aesthetics, fig.width = 6, fig.asp = 0.45, fig.cap = '(ref:common-aesthetics)'}
+# run setup script
+source("misc/_common.R")
+
+library(forcats)
+library(patchwork)
+library(lubridate)
+
+aes_pos <- ggdraw() + 
+  geom_segment(data = data.frame(x = c(0, 0.5),
+                                 xend = c(1, 0.5),
+                                 y = c(0.5, 0),
+                                 yend = c(0.5, 1)),
+                aes(x = x, y = y, xend = xend, yend = yend),
+                arrow = arrow(length = grid::unit(12, "pt")), size = .75) +
+  draw_text("y", .5, 1, size = 12, vjust = 1, hjust = 2.5, family = dviz_font_family) +
+  draw_text("x", 1, .5, size = 12, vjust = 2, hjust = 1, family = dviz_font_family) + 
+  coord_cartesian(xlim = c(-.2, 1.2), ylim = c(-.2, 1.2))
+
+aes_color <- ggdraw() +
+  geom_tile(data = data.frame(x = 0.15 + .2333*(0:3)),
+            aes(x, y = .5, fill = factor(x)), width = .2, height = .6) +
+  scale_fill_OkabeIto(guide = "none")
+
+aes_shape <- ggdraw() +
+  geom_point(data = data.frame(x = (.5 + 0:3)/4),
+             aes(x, y = .5, shape = factor(x)), size = 8, fill = "grey80") +
+  scale_shape_manual(values = 21:24)
+
+aes_size <- ggdraw() +
+  geom_point(data = data.frame(x = (.5 + 0:3)/4),
+             aes(x, y = .5, size = factor(x)), shape = 21, fill = "grey80") +
+  scale_size_manual(values = c(2, 5, 8, 11))
+
+aes_lwd <- ggdraw() +
+  geom_segment(data = data.frame(x = rep(0.05, 4),
+                                 xend = rep(0.95, 4),
+                                 y = (1.5 + 0:3)/6,
+                                 yend = (1.5 + 0:3)/6,
+                                 size = 4:1),
+               aes(x = x, y = y, xend = xend, yend = yend, size = size)) +
+  scale_size_identity()
+
+aes_ltp <- ggdraw() +
+  geom_segment(data = data.frame(x = rep(0.05, 4),
+                                 xend = rep(0.95, 4),
+                                 y = (1.5 + 0:3)/6,
+                                 yend = (1.5 + 0:3)/6,
+                                 linetype = 4:1),
+               aes(x = x, y = y, xend = xend, yend = yend, linetype = linetype), size = 1) +
+  scale_linetype_identity()
+
+
+plot_grid(aes_pos, aes_shape, aes_size,
+          aes_color, aes_lwd, aes_ltp,
+          ncol = 3,
+          labels = c("position", "shape", "size", "color", "line width", "line type"),
+          label_x = 0.05, label_y = 0.95, hjust = 0, vjust = 1)
+```
+
+::: notes
+Aesthetics describe every aspect of a given graphical element. A few
+examples are provided in Figure \@ref(fig:common-aesthetics). A critical
+component of every graphical element is of course its *position,* which
+describes where the element is located. In standard 2d graphics, we
+describe positions by an *x* and *y* value, but other coordinate systems
+and one- or three-dimensional visualizations are possible. Next, all
+graphical elements have a *shape*, a *size*, and a *color.* Even if we
+are preparing a black-and-white drawing, graphical elements need to have
+a color to be visible, for example black if the background is white or
+white if the background is black. Finally, to the extent we are using
+lines to visualize data, these lines may have different widths or
+dash--dot patterns. Beyond the examples shown in the next Figure, there
+are many other aesthetics we may encounter in a data visualization. For
+example, if we want to display text, we may have to specify font family,
+font face, and font size, and if graphical objects overlap, we may have
+to specify whether they are partially transparent.
+:::
+
+## Aesthetics and types of data: part 2
+
+All aesthetics fall into one of two groups: Those that can represent
+continuous data and those that can not.
+
+::: notes
+. Continuous data values are values for which arbitrarily fine
+intermediates exist. For example, time duration is a continuous value.
+Between any two durations, say 50 seconds and 51 seconds, there are
+arbitrarily many intermediates, such as 50.5 seconds, 50.51 seconds,
+50.50001 seconds, and so on. By contrast, number of persons in a room is
+a discrete value. A room can hold 5 persons or 6, but not 5.5. For the
+examples in the Figure, position, size, color, and line width can
+represent continuous data, but shape and line type can usually only
+represent discrete data.
+
+Next we'll consider the types of data we may want to represent in our
+visualization. You may think of data as numbers, but numerical values
+are only two out of several types of data we may encounter. In addition
+to continuous and discrete numerical values, data can come in the form
+of discrete categories, in the form of dates or times, and as text
+(Table \@ref(tab:basic-data-types)). When data is numerical we also call
+it *quantitative* and when it is categorical we call it *qualitative*.
+Variables holding qualitative data are *factors*, and the different
+categories are called *levels*. The levels of a factor are most commonly
+without order (as in the example of "dog", "cat", "fish" in Table
+\@ref(tab:basic-data-types)), but factors can also be ordered, when
+there is an intrinsic order among the levels of the factor (as in the
+example of "good", "fair", "poor" in Table \@ref(tab:basic-data-types)).
+:::
+
+| Type of variable                  | Examples                                     | Appropriate scale      | Description                                                                                                                                                                                                         |
+|:---------------|:---------------|:---------------|:----------------------|
+| quantitative/numerical continuous | 1.3, 5.7, 83, 1.5x10^-2^                     | continuous             | Arbitrary numerical values. These can be integers, rational numbers, or real numbers.                                                                                                                               |
+| quantitative/numerical discrete   | 1, 2, 3, 4                                   | discrete               | Numbers in discrete units. These are most commonly but not necessarily integers. For example, the numbers 0.5, 1.0, 1.5 could also be treated as discrete if intermediate values cannot exist in the given dataset. |
+| qualitative/categorical unordered | dog, cat, fish                               | discrete               | Categories without order. These are discrete and unique categories that have no inherent order. These variables are also called *factors*.                                                                          |
+| qualitative/categorical ordered   | good, fair, poor                             | discrete               | Categories with order. These are discrete and unique categories with an order. For example, "fair" always lies between "good" and "poor". These variables are also called *ordered factors*.                        |
+| date or time                      | Jan. 5 2018, 8:03am                          | continuous or discrete | Specific days and/or times. Also generic dates, such as July 4 or Dec. 25 (without year).                                                                                                                           |
+| text                              | The quick brown fox jumps over the lazy dog. | none, or discrete      | Free-form text. Can be treated as categorical if needed.                                                                                                                                                            |
+
+## Aesthetics and types of data: part 3
+
+To examine a concrete example of these various types of data, take a
+look at this
+
+| Month | Day | Location     | Station ID  | Temperature |
+|:-----:|:---:|:-------------|:-----------:|:-----------:|
+|  Jan  |  1  | Chicago      | USW00014819 |    25.6     |
+|  Jan  |  1  | San Diego    | USW00093107 |    55.2     |
+|  Jan  |  1  | Houston      | USW00012918 |    53.9     |
+|  Jan  |  1  | Death Valley | USC00042319 |    51.0     |
+|  Jan  |  2  | Chicago      | USW00014819 |    25.5     |
+|  Jan  |  2  | San Diego    | USW00093107 |    55.3     |
+|  Jan  |  2  | Houston      | USW00012918 |    53.8     |
+|  Jan  |  2  | Death Valley | USC00042319 |    51.2     |
+|  Jan  |  3  | Chicago      | USW00014819 |    25.3     |
+|  Jan  |  3  | San Diego    | USW00093107 |    55.3     |
+|  Jan  |  3  | Death Valley | USC00042319 |    51.3     |
+|  Jan  |  3  | Houston      | USW00012918 |    53.8     |
+
+: First 12 rows of a dataset listing daily temperature normals for four
+weather stations. Data source: NOAA.
+
+::: notes
+Table \@ref(tab:data-example). It shows the first few rows of a dataset
+providing the daily temperature normals (average daily temperatures over
+a 30-year window) for four U.S. locations. This table contains five
+variables: month, day, location, station ID, and temperature (in degrees
+Fahrenheit). Month is an ordered factor, day is a discrete numerical
+value, location is an unordered factor, station ID is similarly an
+unordered factor, and temperature is a continuous numerical value.
+:::
+
+## Scales map data values onto aesthetics
+
+::: notes
+To map data values onto aesthetics, we need to specify which data values
+correspond to which specific aesthetics values. For example, if our
+graphic has an *x* axis, then we need to specify which data values fall
+onto particular positions along this axis. Similarly, we may need to
+specify which data values are represented by particular shapes or
+colors. This mapping between data values and aesthetics values is
+created via *scales*. A scale defines a unique mapping between data and
+aesthetics (Figure \@ref(fig:basic-scales-example)). Importantly, a
+scale must be one-to-one, such that for each specific data value there
+is exactly one aesthetics value and vice versa. If a scale isn't
+one-to-one, then the data visualization becomes ambiguous.
+
+(ref:basic-scales-example) Scales link data values to aesthetics. Here,
+the numbers 1 through 4 have been mapped onto a position scale, a shape
+scale, and a color scale. For each scale, each number corresponds to a
+unique position, shape, or color and vice versa.
+:::
+
+```{r basic-scales-example, fig.width = 5.5, fig.asp = 0.3, fig.cap = '(ref:basic-scales-example)'}
+df <- data.frame(x = c(1:4))
+
+scale_num <- ggplot(df, aes(x)) + 
+  geom_point(size = 3, color = "#0072B2", y = 1) + 
+  scale_y_continuous(limits = c(0.8, 1.2), expand = c(0, 0), breaks = 1, label = "position  ") +
+  scale_x_continuous(limits = c(.7, 4.4), breaks = 1:5, labels = c("1", "2", "3", "4", "5"), name = NULL, position = "top") +
+  theme_dviz_grid() +
+  theme(axis.ticks.length = grid::unit(0, "pt"),
+        axis.text = element_text(size = 14),
+        axis.title.y = element_blank(),
+        axis.ticks.y = element_blank())
+
+scale_color <- ggplot(df, aes(x, color = factor(x), fill = factor(x))) + 
+  geom_point(size = 5, shape = 22, y = 1) + 
+  scale_y_continuous(limits = c(0.8, 1.2), expand = c(0, 0), breaks = 1, label = "color  ") +
+  scale_x_continuous(limits = c(.7, 4.4), breaks = NULL) +
+  scale_color_manual(values = darken(c("#0082A6", "#4EBBB9", "#9CDFC2", "#D8F0CD"), .1), guide = "none") +
+  scale_fill_manual(values = c("#0082A6", "#4EBBB9", "#9CDFC2", "#D8F0CD"), guide = "none") +
+  theme_dviz_grid() +
+  theme(axis.ticks.length = grid::unit(0, "pt"),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 14),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid.major = element_blank()) 
+
+scale_shape <- ggplot(df, aes(x, shape = factor(x))) + 
+  geom_point(size = 4, color = "grey30", y = 1, fill = "grey80") + 
+  scale_y_continuous(limits = c(0.8, 1.2), expand = c(0, 0), breaks = 1, label = "shape  ") +
+  scale_x_continuous(limits = c(.7, 4.4), breaks = NULL) +
+  scale_shape_manual(values = 21:24, guide = "none") +
+  theme_dviz_grid() +
+  theme(axis.ticks.length = grid::unit(0, "pt"),
+        axis.text.x = element_blank(),
+        axis.text.y = element_text(size = 14),
+        axis.title = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid.major = element_blank()) 
+
+scale_num + scale_shape + scale_color + plot_layout(ncol = 1)
+```
+
+## Let's put things into practice
+
+::: notes
+We can take the dataset shown in Table \@ref(tab:data-example), map
+temperature onto the *y* axis, day of the year onto the *x* axis,
+location onto color, and visualize these aesthetics with solid lines.
+The result is a standard line plot showing the temperature normals at
+the four locations as they change during the year (Figure
+\@ref(fig:temp-normals-vs-time)).
+
+(ref:temp-normals-vs-time) Daily temperature normals for four selected
+locations in the U.S. Temperature is mapped to the *y* axis, day of the
+year to the *x* axis, and location to line color. Data source: NOAA.
+:::
+
+```{r temp-normals-vs-time, fig.cap = '(ref:temp-normals-vs-time)'}
+temps_long <- filter(ncdc_normals,
+                station_id %in% c(
+                  "USW00014819", # Chicago, IL 60638
+                  #"USC00516128", # Honolulu, HI 96813
+                  #"USW00027502", # Barrow, AK 99723, coldest point in the US
+                  "USC00042319", # Death Valley, CA 92328 hottest point in the US
+                  "USW00093107", # San Diego, CA 92145
+                  #"USC00427606"  # Salt Lake City, UT 84103
+                  "USW00012918" # Houston, TX 77061
+                )) %>%
+  mutate(location = fct_recode(factor(station_id),
+                               "Chicago" = "USW00014819",
+                               #"Honolulu, HI" = "USC00516128",
+                               #"Barrow, AK" = "USW00027502",
+                               "Death Valley" = "USC00042319",
+                               "San Diego" = "USW00093107",
+                               #"Salt Lake City, UT" = "USC00427606",
+                               "Houston" = "USW00012918")) %>%
+  mutate(location = factor(location, levels = c("Death Valley", "Houston", "San Diego", "Chicago")))
+
+ggplot(temps_long, aes(x = date, y = temperature, color = location)) +
+  geom_line(size = 1) +
+  scale_x_date(name = "month", limits = c(ymd("0000-01-01"), ymd("0001-01-04")),
+               breaks = c(ymd("0000-01-01"), ymd("0000-04-01"), ymd("0000-07-01"),
+                          ymd("0000-10-01"), ymd("0001-01-01")),
+               labels = c("Jan", "Apr", "Jul", "Oct", "Jan"), expand = c(1/366, 0)) + 
+  scale_y_continuous(limits = c(19.9, 107),
+                     breaks = seq(20, 100, by = 20),
+                     name = "temperature (°F)") +
+  scale_color_OkabeIto(order = c(1:3, 7), name = NULL) +
+  theme_dviz_grid() +
+  theme(legend.title.align = 0.5)
+```
+
+## Let's put things into practice: part 2
+
+::: notes
+Figure \@ref(fig:temp-normals-vs-time) is a fairly standard
+visualization for a temperature curve and likely the visualization most
+data scientists would intuitively choose first. However, it is up to us
+which variables we map onto which scales. For example, instead of
+mapping temperature onto the *y* axis and location onto color, we can do
+the opposite. Because now the key variable of interest (temperature) is
+shown as color, we need to show sufficiently large colored areas for the
+color to convey useful information [@Stone_et_al_2014]. Therefore, for
+this visualization I have chosen squares instead of lines, one for each
+month and location, and I have colored them by the average temperature
+normal for each month (Figure \@ref(fig:four-locations-temps-by-month)).
+:::
+
+Monthly normal mean temperatures for four locations in the U.S. Data
+source: NOAA
+
+```{r four-locations-temps-by-month, fig.width = 5.5*6/4.2, fig.asp = .3, fig.cap = '(ref:four-locations-temps-by-month)'}
+month_names <- c("01" = "Jan", "02" = "Feb", "03" = "Mar", "04" = "Apr", "05" = "May", "06" = "Jun",
+                   "07" = "Jul", "08" = "Aug", "09" = "Sep", "10" = "Oct", "11" = "Nov", "12" = "Dec")
+
+
+mean_temps <- temps_long %>%
+  group_by(location, month) %>%
+  summarize(mean = mean(temperature)) %>%
+  ungroup() %>%
+  mutate(month = month_names[month]) %>%
+  mutate(month = factor(month, levels = unname(month_names)))
+
+p <- ggplot(mean_temps, aes(x = month, y = location, fill = mean)) + 
+  geom_tile(width = .95, height = 0.95) + 
+  scale_fill_viridis_c(option = "B", begin = 0.15, end = 0.98,
+                       name = "temperature (°F)") + 
+  scale_y_discrete(name = NULL) +
+  coord_fixed(expand = FALSE) +
+  theme_dviz_open() +
+  theme(axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        #axis.text.y = element_text(size = 14),
+        legend.title = element_text(size = 12)
+        )
+
+# fix legend (make it centered)
+ggdraw(align_legend(p))
+```
+
+## Let's put things into practice: part 3
+
+::: notes
+I would like to emphasize that Figure
+\@ref(fig:four-locations-temps-by-month) uses two position scales (month
+along the *x* axis and location along the *y* axis) but neither is a
+continuous scale. Month is an ordered factor with 12 levels and location
+is an unordered factor with four levels. Therefore, the two position
+scales are both discrete. For discrete position scales, we generally
+place the different levels of the factor at an equal spacing along the
+axis. If the factor is ordered (as is here the case for month), then the
+levels need to placed in the appropriate order. If the factor is
+unordered (as is here the case for location), then the order is
+arbitrary, and we can choose any order we want. I have ordered the
+locations from overall coldest (Chicago) to overall hottest (Death
+Valley) to generate a pleasant staggering of colors. However, I could
+have chosen any other order and the figure would have been equally
+valid.
+
+Both Figures \@ref(fig:temp-normals-vs-time) and
+\@ref(fig:four-locations-temps-by-month) used three scales in total, two
+position scales and one color scale. This is a typical number of scales
+for a basic visualization, but we can use more than three scales at
+once. Figure \@ref(fig:mtcars-five-scale) uses five scales, two position
+scales, one color scale, one size scale, and one shape scale, and all
+scales represent a different variable from the dataset.
+:::
+
+Fuel efficiency versus displacement, for 32 cars (1973--74 models). This
+figure uses five separate scales to represent data: (i) the *x* axis
+(displacement); (ii) the *y* axis (fuel efficiency); (iii) the color of
+the data points (power); (iv) the size of the data points (weight); and
+(v) the shape of the data points (number of cylinders). Four of the five
+variables displayed (displacement, fuel efficiency, power, and weight)
+are numerical continuous. The remaining one (number of cylinders) can be
+considered to be either numerical discrete or qualitative ordered. Data
+source: *Motor Trend*, 1974.
+
+```{r mtcars-five-scale, fig.width = 6, fig.asp = .8, fig.cap = '(ref:mtcars-five-scale)'}
+p_mtcars <- ggplot(mtcars, aes(disp, mpg, fill = hp, shape = factor(cyl), size = wt)) + 
+  geom_point(color = "white") +
+  scale_shape_manual(values = c(23, 24, 21), name = "cylinders") +
+  scale_fill_continuous_sequential(
+    palette = "Emrld", name = "power (hp)",
+    breaks = c(100, 200, 300),
+    rev = FALSE
+  ) +
+  xlab("displacement (cu. in.)") +
+  ylab("fuel efficiency (mpg)") +
+  guides(
+    shape = guide_legend(override.aes = list(size = 4, fill = "#329D84")),
+    size = guide_legend(override.aes = list(shape = 21, fill = "#329D84"),
+    title = "weight (1000 lbs)")
+  ) +
+  theme_dviz_open() + background_grid() +
+  theme(
+    #legend.title = element_text(size = 12),
+    legend.box.background = element_rect(fill = "white", color = "white"),
+    legend.position = "top",
+    legend.direction = "vertical",
+    legend.justification = "center",
+    legend.box.margin = margin(7, 7, 7, 7)
+  )
+
+legend <- get_legend(align_legend(p_mtcars))
+
+ggdraw() + 
+  draw_plot(p_mtcars + theme(legend.position = "none")) + 
+  draw_grob(legend, x = .36, y = .7, width = .7, height = .3)
+```
+
+```{r echo = FALSE, message = FALSE}
+# run setup script
+source("misc/_common.R")
+
+library(lubridate)
+library(forcats)
+library(tidyr)
+library(ggrepel)
+```
+
+# Coordinate systems and axes
+
+* To make any sort of data visualization, we need to define position
+scales, which determine where in a graphic different data values are located. 
+
+* We cannot visualize data without placing different data points
+at different locations, even if we just arrange them next to each other along a line. 
+
+* For regular 2d visualizations, two numbers are required to
+uniquely specify a point, and therefore we need two position scales. These two scales are usually but not necessarily the *x* and *y* axis of
+the plot. 
+
+* We also have to specify the relative geometric arrangement of
+these scales. Conventionally, the *x* axis runs horizontally and the *y* axis vertically, but we could choose other arrangements. For example, we could have the *y* axis run at an acute angle relative to the *x* axis, or we could have one axis run in a circle and the other run radially.
+
+* The combination of a set of position scales and their relative geometric arrangement is called a *coordinate system.*
+
+## Cartesian coordinates
+
+::: notes
+The most widely used coordinate system for data visualization is the 2d
+*Cartesian coordinate system*, where each location is uniquely specified
+by an *x* and a *y* value. The *x* and *y* axes run orthogonally to each
+other, and data values are placed in an even spacing along both axes
+(Figure \@ref(fig:cartesian-coord)). The two axes are continuous
+position scales, and they can represent both positive and negative real
+numbers. To fully specify the coordinate system, we need to specify the
+range of numbers each axis covers. In Figure \@ref(fig:cartesian-coord),
+the *x* axis runs from -2.2 to 3.2 and the *y* axis runs from -2.2 to
+2.2. Any data values between these axis limits are placed at the
+respective location in the plot. Any data values outside the axis limits
+are discarded.
+
+(ref:cartesian-coord) Standard cartesian coordinate system. The
+horizontal axis is conventionally called *x* and the vertical axis *y*.
+The two axes form a grid with equidistant spacing. Here, both the *x*
+and the *y* grid lines are separated by units of one. The point (2, 1)
+is located two *x* units to the right and one *y* unit above the origin
+(0, 0). The point (-1, -1) is located one *x* unit to the left and one
+*y* unit below the origin.
+:::
+
+```{r cartesian-coord, fig.asp = 0.8, fig.cap = '(ref:cartesian-coord)'}
+df_points <- data.frame(x = c(-1, 0, 2),
+                        y = c(-1, 0, 1),
+                        label = c("(–1, –1)", "(0, 0)", "(2, 1)"),
+                        vjust = c(1.4, -.8, -.8),
+                        hjust = c(1.1, 1.1, -.1))
+
+df_segments <- data.frame(x0 = c(0, 2, 0, -1),
+                          x1 = c(2, 2, -1, -1),
+                          y0 = c(1, 0, -1, 0),
+                          y1 = c(1, 1, -1, -1))
+
+df_labels <- data.frame(x = c(-1, -.5, 1, 2),
+                        y = c(-.5, -1, 1, 0.5),
+                        vjust = c(.5, 1.3, -.3, .5),
+                        hjust = c(1.1, .5, .5, -.1),
+                        label = c("y = –1", "x = –1", "x = 2", "y = 1"))
+
+ggplot(df_points, aes(x, y)) +
+  geom_hline(yintercept = 0, color = "gray50") +
+  geom_vline(xintercept = 0, color = "gray50") +
+  geom_segment(data = df_segments, aes(x = x0, xend = x1, y = y0, yend = y1),
+               linetype = 2) +
+  geom_point(size = 3, color = "#0072B2") +
+  geom_text(aes(label = label, vjust = vjust, hjust = hjust),
+            size = 12/.pt, family = dviz_font_family) +
+  geom_text(data = df_labels, aes(label = label, hjust = hjust, vjust = vjust),
+            size = 12/.pt, family = dviz_font_family) +
+  coord_fixed(xlim = c(-2.2, 3.2), ylim = c(-2.2, 2.2), expand = FALSE) +
+  xlab("x axis") +
+  ylab("y axis") +
+  theme_dviz_grid() +
+  theme(axis.ticks.length = grid::unit(0, "pt"))
+```
+
+## Cartesian coordinates: part 2
+
+::: notes
+Data values usually aren't just numbers, however. They come with units.
+For example, if we're measuring temperature, the values may be measured
+in degrees Celsius or Fahrenheit. Similarly, if we're measuring
+distance, the values may be measured in kilometers or miles, and if
+we're measuring duration, the values may be measured in minutes, hours,
+or days. In a Cartesian coordinate system, the spacing between grid
+lines along an axis corresponds to discrete steps in these data units.
+In a temperature scale, for example, we may have a grid line every 10
+degrees Fahrenheit, and in a distance scale, we may have a grid line
+every 5 kilometers.
+
+A Cartesian coordinate system can have two axes representing two
+different units. This situation arises quite commonly whenever we're
+mapping two different types of variables to *x* and *y*. For example, in
+Figure \@ref(fig:temp-normals-vs-time), we plotted temperature vs. days
+of the year. The *y* axis of Figure \@ref(fig:temp-normals-vs-time) is
+measured in degrees Fahrenheit, with a grid line every at 20 degrees,
+and the *x* axis is measured in months, with a grid line at the first of
+every third month. Whenever the two axes are measured in different
+units, we can stretch or compress one relative to the other and maintain
+a valid visualization of the data (Figure
+\@ref(fig:temperature-normals-Houston)). Which version is preferable may
+depend on the story we want to convey. A tall and narrow figure
+emphasizes change along the *y* axis and a short and wide figure does
+the opposite. Ideally, we want to choose an aspect ratio that ensures
+that any important differences in position are noticeable.
+:::
+
+Daily temperature normals for Houston, TX. Temperature is mapped to the
+*y* axis and day of the year to the *x* axis. Parts (a), (b), and (c)
+show the same figure in different aspect ratios. All three parts are
+valid visualizations of the temperature data. Data source: NOAA.
+
+```{r temperature-normals-Houston, fig.width = 5*6/4.2, fig.asp = 3/4, fig.cap = '(ref:temperature-normals-Houston)'}
+temps_wide <- filter(ncdc_normals,
+                station_id %in% c(
+                  "USW00014819", # Chicago, IL 60638
+                  "USC00516128", # Honolulu, HI 96813
+                  "USW00027502", # Barrow, AK 99723, coldest point in the US
+                  "USC00042319", # Death Valley, CA 92328 hottest point in the US
+                  "USW00093107", # San Diego, CA 92145
+                  "USW00012918", # Houston, TX 77061
+                  "USC00427606"  # Salt Lake City, UT 84103
+                )) %>%
+  mutate(location = fct_recode(factor(station_id),
+                               "Chicago" = "USW00014819",
+                               "Honolulu" = "USC00516128",
+                               "Barrow, AK" = "USW00027502",
+                               "Death Valley" = "USC00042319",
+                               "San Diego" = "USW00093107",
+                               "Houston" = "USW00012918",
+                               "Salt Lake City, UT" = "USC00427606")) %>%
+  select(-station_id, -flag) %>%
+  spread(location, temperature) %>%
+  arrange(date)
+
+temps_wide_label <- mutate(
+  temps_wide,
+  label = ifelse(
+    date %in% c(ymd("0000-01-01"), ymd("0000-04-01"), ymd("0000-07-01"), ymd("0000-10-01")),
+    format(date, "%b 1st"),
+    ""
+  ),
+  nudge_x = ifelse(
+    date %in% c(ymd("0000-01-01"), ymd("0000-04-01"), ymd("0000-07-01"), ymd("0000-10-01")),
+    c(-1, -2, -2, 1)[round(month(date)/3)+1],
+    0
+  ),
+  nudge_y = ifelse(
+    date %in% c(ymd("0000-01-01"), ymd("0000-04-01"), ymd("0000-07-01"), ymd("0000-10-01")),
+    c(-2, 1, 0.5, -2)[round(month(date)/3)+1],
+    0
+  )
+)
+
+temp_plot <- ggplot(temps_wide_label, aes(x = date, y = `Houston`)) +
+  geom_line(size = 1, color = "#0072B2") +
+  scale_x_date(name = "month", limits = c(ymd("0000-01-01"), ymd("0001-01-03")),
+               breaks = c(ymd("0000-01-01"), ymd("0000-04-01"), ymd("0000-07-01"),
+                          ymd("0000-10-01"), ymd("0001-01-01")),
+               labels = c("Jan", "Apr", "Jul", "Oct", "Jan"), expand = c(2/366, 0)) + 
+  scale_y_continuous(limits = c(50, 90),
+                     name = "temperature (°F)") +
+  theme_dviz_grid(12) +
+  theme(plot.margin = margin(3, 5, 3, 1.5))
+
+plot_grid(
+  plot_grid(
+    temp_plot, NULL, temp_plot, rel_widths = c(1, 0.06, 2), labels = c("a", "", "b"), nrow = 1
+  ),
+  NULL, temp_plot,
+  rel_heights = c(1.5, 0.06, 1), labels = c("", "", "c"), label_y = c(1, 1, 1.03), ncol = 1
+)
+```
+
+## Nonlinear axes
+
+::: notes
+Mathematically, there is no difference between plotting the
+log-transformed data on a linear scale or plotting the original data on
+a logarithmic scale (Figure \@ref(fig:linear-log-scales)). The only
+difference lies in the labeling for the individual axis ticks and for
+the axis as a whole. In most cases, the labeling for a logarithmic scale
+is preferable, because it places less mental burden on the reader to
+interpret the numbers shown as the axis tick labels. There is also less
+of a risk of confusion about the base of the logarithm. When working
+with log-transformed data, we can get confused about whether the data
+were transformed using the natural logarithm or the logarithm to base
+10. And it's not uncommon for labeling to be ambiguous, e.g. "log(x)",
+which doesn't specify a base at all. I recommend that you always verify
+the base when working with log-transformed data. When plotting
+log-transformed data, always specify the base in the labeling of the
+axis.
+
+Because multiplication on a log scale looks like addition on a linear
+scale, log scales are the natural choice for any data that have been
+obtained by multiplication or division. In particular, ratios should
+generally be shown on a log scale. As an example, I have taken the
+number of inhabitants in each county in Texas and have divided it by the
+median number of inhabitants across all Texas counties. The resulting
+ratio is a number that can be larger or smaller than 1. A ratio of
+exactly 1 implies that the corresponding county has the median number of
+inhabitants. When visualizing these ratios on a log scale, we can see
+clearly that the population numbers in Texas counties are symmetrically
+distributed around the median, and that the most populous counties have
+over 100 times more inhabitants than the median while the least populous
+counties have over 100 times fewer inhabitants (Figure
+\@ref(fig:texas-counties-pop-ratio-log)). By contrast, for the same
+data, a linear scale obscures the differences between a county with
+median population number and a county with a much smaller population
+number than median (Figure \@ref(fig:texas-counties-pop-ratio-lin)).
+:::
+
+Population numbers of Texas counties relative to their median value.
+Select counties are highlighted by name. The dashed line indicates a
+ratio of 1, corresponding to a county with median population number. The
+most populous counties have approximately 100 times more inhabitants
+than the median county, and the least populous counties have
+approximately 100 times fewer inhabitants than the median county. Data
+source: 2010 Decennial U.S. Census.
+
+```{r texas-counties-pop-ratio-log, fig.width = 5*6/4.2, fig.asp = 0.6, fig.cap = '(ref:texas-counties-pop-ratio-log)'}
+set.seed(3878)
+US_census %>% filter(state == "Texas") %>%
+  select(name, pop2010) %>%
+  extract(name, "county", regex = "(.+) County") %>%
+  mutate(popratio = pop2010/median(pop2010)) %>%
+  arrange(desc(popratio)) %>%
+  mutate(index = 1:n(),
+         label = ifelse(index <= 3 | index > n()-3 | runif(n()) < .04, county, ""),
+         label_large = ifelse(index <= 6, county, "")) -> tx_counties
+
+ggplot(tx_counties, aes(x = index, y = popratio)) +
+  geom_hline(yintercept = 1, linetype = 2, color = "grey40") +
+  geom_point(size = 0.5, color = "#0072B2") +
+  geom_text_repel(aes(label = label), point.padding = .4, color = "black",
+                  min.segment.length = 0, family = dviz_font_family) +
+  scale_y_log10(breaks = c(.01, .1, 1, 10, 100),
+                name = "population number / median",
+                labels = label_log10) +
+  scale_x_continuous(limits = c(.5, nrow(tx_counties) + .5), expand = c(0, 0),
+                     breaks = NULL, #c(1, 50*(1:5)),
+                     name = "Texas counties, from most to least populous") +
+  theme_dviz_hgrid() +
+  theme(axis.line = element_blank(),
+        plot.margin = margin(3, 7, 3, 1.5))
+```
+
+## Nonlinear axes: part 2
+
+Population sizes of Texas counties relative to their median value. By
+displaying a ratio on a linear scale, we have overemphasized ratios \> 1
+and have obscured ratios \< 1. As a general rule, ratios should not be
+displayed on a linear scale. Data source: 2010 Decennial U.S. Census.
+
+```{r texas-counties-pop-ratio-lin, fig.width = 5*6/4.2, fig.asp = 0.6, fig.cap = '(ref:texas-counties-pop-ratio-lin)'}
+counties_lin <- ggplot(tx_counties, aes(x = index, y = popratio)) +
+  geom_point(size = 0.5, color = "#0072B2") +
+  geom_text_repel(aes(label = label_large), point.padding = .4, color = "black",
+                  min.segment.length = 0, family = dviz_font_family) +
+  scale_y_continuous(name = "population number / median") +
+  scale_x_continuous(limits = c(.5, nrow(tx_counties) + .5), expand = c(0, 0),
+                     breaks = NULL, #c(1, 50*(1:5)),
+                     name = "Texas counties, from most to least populous") +
+  theme_dviz_hgrid() +
+  theme(axis.line = element_blank(),
+        plot.margin = margin(3, 7, 3, 1.5))
+
+stamp_bad(counties_lin)
+```
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+# run setup script
+source("misc/_common.R")
+
+library(sf)
+```
+
+# Color scales
+
+There are three fundamental use cases for color in data visualizations:
+
+1.  We can use color to distinguish groups of data from each other
+2.  We can use color to represent data values
+3.  We can use color to highlight. The types of colors we use and the
+    way in which we use them are quite different for these three cases.
+
+## Color as a tool to distinguish
+
+::: notes
+We frequently use color as a means to distinguish discrete items or
+groups that do not have an intrinsic order, such as different countries
+on a map or different manufacturers of a certain product. In this case,
+we use a *qualitative* color scale. Such a scale contains a finite set
+of specific colors that are chosen to look clearly distinct from each
+other while also being equivalent to each other. The second condition
+requires that no one color should stand out relative to the others. And,
+the colors should not create the impression of an order, as would be the
+case with a sequence of colors that get successively lighter. Such
+colors would create an apparent order among the items being colored,
+which by definition have no order.
+
+Many appropriate qualitative color scales are readily available. Figure
+\@ref(fig:qualitative-scales) shows three representative examples. In
+particular, the ColorBrewer project provides a nice selection of
+qualitative color scales, including both fairly light and fairly dark
+colors [@ColorBrewer].
+:::
+
+Example qualitative color scales. The Okabe Ito
+scale is the default scale used throughout this book.
+The ColorBrewer Dark2 scale is provided by the ColorBrewer project. The ggplot2 hue scale is the default qualitative scale
+in the widely used plotting software ggplot2.
+
+```{r qualitative-scales, fig.width=5*6/4.2, fig.asp=3*.14, fig.cap = '(ref:qualitative-scales)'}
+p1 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_OkabeIto() + ggtitle("Okabe Ito") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+p2 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_brewer(type = "qual", palette = "Dark2") + ggtitle("ColorBrewer Dark2") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+p3 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_hue() + ggtitle("ggplot2 hue") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+plot_grid(p1, p2, p3, ncol = 1)
+```
+
+## Color as a tool to distinguish: part 2
+
+::: notes
+As an example of how we use qualitative color scales, consider Figure
+\@ref(fig:popgrowth-US). It shows the percent population growth from
+2000 to 2010 in U.S. states. I have arranged the states in order of
+their population growth, and I have colored them by geographic region.
+This coloring highlights that states in the same regions have
+experienced similar population growth. In particular, states in the West
+and the South have seen the largest population increases whereas states
+in the Midwest and the Northeast have grown much less.
+:::
+
+Population growth in the U.S. from 2000 to 2010. States in the West and South have seen the largest increases, whereas states in the Midwest and Northeast have seen much smaller increases or even, in the case of Michigan, a decrease. Data source: U.S. Census
+Bureau
+
+```{r popgrowth-US, fig.width = 6, fig.asp = 1.2, fig.cap = '(ref:popgrowth-US)'}
+popgrowth_df <- left_join(US_census, US_regions) %>%
+    group_by(region, division, state) %>%
+    summarize(pop2000 = sum(pop2000, na.rm = TRUE),
+              pop2010 = sum(pop2010, na.rm = TRUE),
+              popgrowth = (pop2010-pop2000)/pop2000,
+              area = sum(area)) %>%
+    arrange(popgrowth) %>%
+    ungroup() %>%
+    mutate(state = factor(state, levels = state),
+           region = factor(region, levels = c("West", "South", "Midwest", "Northeast")))
+
+# make color vector in order of the state
+region_colors <- c("#E69F00", "#56B4E9", "#009E73", "#F0E442")
+region_colors_dark <- darken(region_colors, 0.4)
+state_colors <- region_colors_dark[as.numeric(popgrowth_df$region[order(popgrowth_df$state)])]
+
+ggplot(popgrowth_df, aes(x = state, y = 100*popgrowth, fill = region)) + 
+  geom_col() + 
+  scale_y_continuous(
+    limits = c(-.6, 37.5), expand = c(0, 0),
+    labels = scales::percent_format(accuracy = 1, scale = 1),
+    name = "population growth, 2000 to 2010"
+  ) +
+  scale_fill_manual(values = region_colors) +
+  coord_flip() + 
+  theme_dviz_vgrid(12, rel_small = 1) +
+  theme(axis.title.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.ticks.length = unit(0, "pt"),
+        axis.text.y = element_text(size = 10, color = state_colors),
+        legend.position = c(.56, .68),
+        #legend.text = element_text(color = region_colors),
+        legend.background = element_rect(fill = "#ffffffb0"))
+```
+
+## Color to represent data values
+
+::: notes
+Color can also be used to represent data values, such as income,
+temperature, or speed. In this case, we use a *sequential* color scale.
+Such a scale contains a sequence of colors that clearly indicate (i)
+which values are larger or smaller than which other ones and (ii) how
+distant two specific values are from each other. The second point
+implies that the color scale needs to be perceived to vary uniformly
+across its entire range.
+
+Sequential scales can be based on a single hue (e.g., from dark blue to
+light blue) or on multiple hues (e.g., from dark red to light yellow)
+(Figure \@ref(fig:sequential-scales)). Multi-hue scales tend to follow
+color gradients that can be seen in the natural world, such as dark red,
+green, or blue to light yellow, or dark purple to light green. The
+reverse, e.g. dark yellow to light blue, looks unnatural and doesn't
+make a useful sequential scale.
+:::
+
+Example sequential color scales. The ColorBrewer Blues scale is a monochromatic scale that varies from dark to light
+blue. The Heat and Viridis scales are multi-hue scales that vary from dark red to light yellow and from dark blue via green to light yellow, respectively.
+
+```{r sequential-scales, fig.width=5*6/4.2, fig.asp=3*.14, fig.cap = '(ref:sequential-scales)'}
+p1 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_brewer(type = "seq", palette = "Blues", direction = -1) + ggtitle("ColorBrewer Blues") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+p2 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_discrete_sequential("Heat", rev = FALSE) + ggtitle("Heat") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+p3 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_viridis_d() + ggtitle("Viridis") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+plot_grid(p1, p2, p3, ncol = 1)
+```
+
+## Color to represent data values: part 2
+
+::: notes
+Representing data values as colors is particularly useful when we want
+to show how the data values vary across geographic regions. In this
+case, we can draw a map of the geographic regions and color them by the
+data values. Such maps are called *choropleths*. Figure
+\@ref(fig:map-Texas-income) shows an example where I have mapped annual
+median income within each county in Texas onto a map of those counties.
+:::
+
+Median annual income in Texas counties. The highest median incomes are seen in major Texas metropolitan areas, in particular near Houston and Dallas. No median income estimate is available for Loving County in West Texas and therefore that county is
+shown in gray. Data source: 2015 Five-Year American Community Survey
+
+```{r map-Texas-income, fig.width = 6, fig.asp = 0.75, fig.cap = '(ref:map-Texas-income)'}
+# B19013_001: Median household income in the past 12 months (in 2015 Inflation-adjusted dollars)
+
+# EPSG:3083
+# NAD83 / Texas Centric Albers Equal Area
+# http://spatialreference.org/ref/epsg/3083/
+texas_crs <- "+proj=aea +lat_1=27.5 +lat_2=35 +lat_0=18 +lon_0=-100 +x_0=1500000 +y_0=6000000 +ellps=GRS80 +datum=NAD83 +units=m +no_defs"
+
+# -110, -93.5 transformed using texas_crs
+texas_xlim <- c(558298.7, 2112587)
+
+texas_income %>% st_transform(crs = texas_crs) %>%
+  ggplot(aes(fill = estimate)) + 
+  geom_sf(color = "white") + 
+  coord_sf(xlim = texas_xlim, datum = NA) +
+  theme_dviz_map() + 
+  scale_fill_distiller(
+    palette = "Blues", type = 'seq', na.value = "grey60", direction = 1,
+    name = "annual median income (USD)",
+    limits = c(18000, 90000),
+    breaks = 20000*c(1:4),
+    labels = c("$20,000", "$40,000", "$60,000", "$80,000"),
+    guide = guide_colorbar(
+      direction = "horizontal",
+      label.position = "bottom",
+      title.position = "top",
+      ticks = FALSE,
+      barwidth = grid::unit(3.0, "in"),
+      barheight = grid::unit(0.2, "in")
+    )
+  ) +
+  theme(
+    legend.title.align = 0.5,
+    legend.text.align = 0.5,
+    legend.justification = c(0, 0),
+    legend.position = c(0.02, 0.1)
+  )
+```
+
+
+## Color to represent data values: part 3
+
+::: notes
+In some cases, we need to visualize the deviation of data values in one
+of two directions relative to a neutral midpoint. One straightforward
+example is a dataset containing both positive and negative numbers. We
+may want to show those with different colors, so that it is immediately
+obvious whether a value is positive or negative as well as how far in
+either direction it deviates from zero. The appropriate color scale in
+this situation is a *diverging* color scale. We can think of a diverging
+scale as two sequential scales stitched together at a common midpoint,
+which usually is represented by a light color (Figure
+\@ref(fig:diverging-scales)). Diverging scales need to be balanced, so
+that the progression from light colors in the center to dark colors on
+the outside is approximately the same in either direction. Otherwise,
+the perceived magnitude of a data value would depend on whether it fell
+above or below the midpoint value.
+
+:::
+
+Example diverging color scales. Diverging scales
+can be thought of as two sequential scales stitched together at a common midpoint color. Common color choices for diverging scales include brown to greenish blue, pink to yellow-green, and blue to red.
+
+```{r diverging-scales, fig.width=5*6/4.2, fig.asp=3*.14, fig.cap = '(ref:diverging-scales)'}
+p1 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_discrete_divergingx(palette = "Earth") + ggtitle("CARTO Earth") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+p2 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_brewer(type = "div", palette = "PiYG") + ggtitle("ColorBrewer PiYG") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+p3 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_discrete_diverging("Blue-Red") + ggtitle("Blue-Red") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+plot_grid(p1, p2, p3, ncol = 1)
+```
+
+## Color to represent data values: part 4
+
+::: notes
+As an example application of a diverging color scale, consider Figure
+\@ref(fig:map-Texas-race), which shows the percentage of people
+identifying as white in Texas counties. Even though percentage is always
+a positive number, a diverging scale is justified here, because 50% is a
+meaningful midpoint value. Numbers above 50% indicate that whites are in
+the majority and numbers below 50% indicate the opposite. The
+visualization clearly shows in which counties whites are in the
+majority, in which they are in the minority, and in which whites and
+non-whites occur in approximately equal proportions.
+:::
+
+Percentage of people identifying as white in Texas
+counties. Whites are in the majority in North and East Texas but not in South or West Texas. Data source: 2010 Decennial U.S. Census
+
+```{r map-Texas-race, fig.width = 6, fig.asp = 0.75, fig.cap = '(ref:map-Texas-race)'}
+texas_race %>% st_sf() %>%
+  st_transform(crs = texas_crs) %>%
+  filter(variable == "White") %>%
+  ggplot(aes(fill = pct)) +
+  geom_sf(color = "white") +
+  coord_sf(xlim = texas_xlim, datum = NA) + 
+  theme_dviz_map() +
+  scale_fill_continuous_divergingx(
+    palette = "Earth",
+    mid = 50,
+    limits = c(0, 100),
+    breaks = 25*(0:4),
+    labels = c("0% ", "25%", "50%", "75%", " 100%"),
+    name = "percent identifying as white",
+    guide = guide_colorbar(
+      direction = "horizontal",
+      label.position = "bottom",
+      title.position = "top",
+      ticks = FALSE,
+      barwidth = grid::unit(3.0, "in"),
+      barheight = grid::unit(0.2, "in"))) +
+  theme(
+    legend.title.align = 0.5,
+    legend.text.align = 0.5,
+    legend.justification = c(0, 0),
+    legend.position = c(0.02, 0.1)
+  )
+```
+
+## Color as a tool to highlight
+
+::: notes
+Color can also be an effective tool to highlight specific elements in the data. There may be specific categories or values in the dataset that carry key information about the story we want to tell, and we can strengthen the story by emphasizing the relevant figure elements to the
+reader. An easy way to achieve this emphasis is to color these figure
+elements in a color or set of colors that vividly stand out against the
+rest of the figure. This effect can be achieved with *accent* color
+scales, which are color scales that contain both a set of subdued colors
+and a matching set of stronger, darker, and/or more saturated colors
+(Figure \@ref(fig:accent-scales)).
+:::
+
+Example accent color scales, each with four base
+colors and three accent colors. Accent color scales can be derived in several different ways: (top) we can take an existing color scale and lighten and/or partially desaturate some colors while darkening others; (middle)
+we can take gray values and pair them with colors; (bottom) we can use an existing accent color scale, e.g. the one from the ColorBrewer project.
+
+```{r accent-scales, fig.width=5*6/4.2, fig.asp=3*.14, fig.cap = '(ref:accent-scales)'}
+accent_OkabeIto <- palette_OkabeIto[c(1, 2, 7, 4, 5, 3, 6)]
+accent_OkabeIto[1:4] <- desaturate(lighten(accent_OkabeIto[1:4], .4), .8)
+accent_OkabeIto[5:7] <- darken(accent_OkabeIto[5:7], .3)
+
+
+p1 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_manual(values = accent_OkabeIto) + ggtitle("Okabe Ito Accent") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+p2 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_manual(values = c("gray60", "gray70","gray80", "gray90", "#C95C4F",   '#83A121', '#6B8AD5')) + ggtitle("Grays with accents") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+p3 <- gg_color_swatches(7, title_family = dviz_font_family) + 
+  scale_fill_brewer(type = "qual", palette = "Accent") + ggtitle("ColorBrewer Accent") +
+  theme(plot.margin = margin(7, 1.5, 7, 1.5))
+plot_grid(p1, p2, p3, ncol = 1)
+```
+
+## Color as a tool to highlight: part 2
+::: notes
+As an example of how the same data can support differing stories with
+different coloring approaches, I have created a variant of Figure
+\@ref(fig:popgrowth-US) where now I highlight two specific states, Texas
+and Louisiana (Figure \@ref(fig:popgrowth-US-highlight)). Both states
+are in the South, they are immediate neighbors, and yet one state
+(Texas) was the fifth-fastest growing state within the U.S. whereas the
+other was the third slowest growing from 2000 to 2010.
+:::
+
+From 2000 to 2010, the two neighboring southern states Texas and Louisiana have experienced among the highestand lowest population growth across the U.S. Data source: U.S. Census Bureau
+
+```{r popgrowth-US-highlight, fig.width = 6, fig.asp = 1.2, fig.cap = '(ref:popgrowth-US-highlight)'}
+popgrowth_hilight <- left_join(US_census, US_regions) %>%
+    group_by(region, division, state) %>%
+    summarize(pop2000 = sum(pop2000, na.rm = TRUE),
+              pop2010 = sum(pop2010, na.rm = TRUE),
+              popgrowth = (pop2010-pop2000)/pop2000,
+              area = sum(area)) %>%
+    arrange(popgrowth) %>%
+    ungroup() %>%
+    mutate(region = ifelse(state %in% c("Texas", "Louisiana"), "highlight", region)) %>%
+    mutate(state = factor(state, levels = state),
+           region = factor(region, levels = c("West", "South", "Midwest", "Northeast", "highlight")))
+
+# make color and fontface vector in order of the states
+region_colors_bars <- c(desaturate(lighten(c("#E69F00", "#56B4E9", "#009E73", "#F0E442"), .4), .8), darken("#56B4E9", .3))
+region_colors_axis <- c(rep("gray30", 4), darken("#56B4E9", .4))
+region_fontface <- c(rep("plain", 4), "bold")
+state_colors <- region_colors_axis[as.numeric(popgrowth_hilight$region[order(popgrowth_hilight$state)])]
+state_fontface <- region_fontface[as.numeric(popgrowth_hilight$region[order(popgrowth_hilight$state)])]
+
+ggplot(popgrowth_hilight, aes(x = state, y = 100*popgrowth, fill = region)) + 
+  geom_col() + 
+  scale_y_continuous(
+    limits = c(-.6, 37.5), expand = c(0, 0),
+    labels = scales::percent_format(accuracy = 1, scale = 1),
+    name = "population growth, 2000 to 2010"
+  ) +
+  scale_fill_manual(
+    values = region_colors_bars,
+    breaks = c("West", "South", "Midwest", "Northeast")
+  ) +
+  coord_flip() + 
+  theme_dviz_vgrid(12, rel_small = 1) +
+  theme(
+    text = element_text(color = "gray30"),
+    axis.text.x = element_text(color = "gray30"),
+    axis.title.y = element_blank(),
+    axis.line.y = element_blank(),
+    axis.ticks.length = unit(0, "pt"),
+    axis.text.y = element_text(
+      size = 10, color = state_colors,
+      face = state_fontface
+    ),
+    legend.position = c(.56, .68),
+    legend.background = element_rect(fill = "#ffffffb0")
+  )
+```
+
+## Color as a tool to highlight: part 3
+::: notes
+When working with accent colors, it is critical that the baseline colors
+do not compete for attention. Notice how drab the baseline colors are in
+(Figure \@ref(fig:popgrowth-US-highlight)). Yet they work well to
+support the accent color. It is easy to make the mistake of using
+baseline colors that are too colorful, so that they end up competing for
+the reader's attention against the accent colors. There is an easy
+remedy, however. Just remove all color from all elements in the figure
+except the highlighted data categories or points. An example of this
+strategy is provided in Figure \@ref(fig:Aus-athletes-track).
+:::
+
+Track athletes are among the shortest and leanest of male professional athletes participating in popular sports.
+Data source: @Telford-Cunningham-1991
+
+```{r Aus-athletes-track, fig.width = 6, fig.cap='(ref:Aus-athletes-track)'}
+male_Aus <- filter(Aus_athletes, sex=="m") %>%
+  filter(sport %in% c("basketball", "field", "swimming", "track (400m)",
+                      "track (sprint)", "water polo")) %>%
+  mutate(sport = case_when(sport == "track (400m)" ~ "track",
+                           sport == "track (sprint)" ~ "track",
+                           TRUE ~ sport))
+
+male_Aus$sport <- factor(male_Aus$sport,
+                         levels = c("track", "field", "water polo", "basketball", "swimming"))
+
+colors <- c("#BD3828", rep("#808080", 4))
+fills <- c("#BD3828D0", rep("#80808080", 4))
+
+ggplot(male_Aus, aes(x=height, y=pcBfat, shape=sport, color = sport, fill = sport)) +
+  geom_point(size = 3) +
+  scale_shape_manual(values = 21:25) +
+  scale_color_manual(values = colors) +
+  scale_fill_manual(values = fills) +
+  xlab("height (cm)") +
+  ylab("% body fat") +
+  theme_dviz_grid()
+```
+
+# Directory of visualizations {#directory-of-visualizations}
+
+This part provides a quick visual overview of the various plots and charts that are commonly used to visualize data. It is meant both to serve as a table of contents, in case you are looking for a particular visualization whose name you may not know, and as a source of inspiration, if you need to find alternatives to the figures you routinely make.
+
+```{r}
+library(dplyr)
+library(tidyr)
+library(ggforce)
+library(ggridges)
+library(treemapify)
+library(forcats)
+library(statebins)
+library(sf)
+library(ungeviz)
+## general setup code
+
+# line_size = 0.6
+
+# theme
+theme_plot_icon <- function(bg_color = "#F5F8EA", line_color = "#243400",
+                            line_size = .5, font_size = 14) {
+  theme_dviz_open() %+replace% theme(
+    axis.text.x       = element_blank(),
+    axis.text.y       = element_blank(),
+    axis.title.x      = element_blank(),
+    axis.title.y      = element_blank(),
+    #axis.line.x       = element_blank(),
+    #axis.line.y       = element_blank(),
+    #axis.ticks        = element_blank(),
+    axis.line.x       = element_line(size = line_size, color = line_color),
+    axis.line.y       = element_line(size = line_size, color = line_color),
+    axis.ticks        = element_line(size = line_size, color = line_color),
+    axis.ticks.length = grid::unit(4, "pt"),
+    legend.position   = "none",
+    plot.margin       = margin(
+      font_size*8/14, font_size, font_size*10/14, font_size
+    ),
+    plot.title        = element_text(
+      hjust = 0.5,
+      #family = dviz_font_family_bold,
+      family = dviz_font_family_condensed,
+      color = line_color,
+      size = font_size,
+      margin = margin(0, 0, font_size*6/14, 0)
+    ),
+    plot.background   = element_rect(fill = bg_color)
+  )
+}
+
+theme_plot_icon_hgrid <- function(bg_color = "#F5F8EA", line_color = "#243400",
+                                  line_size = .5, font_size = 14) {
+  theme_plot_icon(bg_color, line_color, line_size, font_size) %+replace% theme(
+      # make grid lines
+      #panel.grid.major.y   = element_line(colour = paste0(line_color, "30"),
+      #                                    size = 0.5),
+
+      # remove x axis
+      axis.ticks.x        = element_blank(),
+      axis.line.x         = element_blank()
+  )
+}
+
+theme_plot_icon_vgrid <- function(bg_color = "#F5F8EA", line_color = "#243400",
+                                  line_size = .5, font_size = 14) {
+  theme_plot_icon(bg_color, line_color, line_size, font_size) %+replace% theme(
+      # make grid lines
+      #panel.grid.major.x   = element_line(colour = paste0(line_color, "30"),
+      #                                    size = 0.5),
+
+      # remove y axis
+      axis.ticks.y        = element_blank(),
+      axis.line.y         = element_blank()
+  )
+}
+
+theme_plot_icon_blank <- function(bg_color = "#F5F8EA", line_color = "#243400",
+                                  line_size = .5, font_size = 14) {
+  theme_plot_icon(bg_color, line_color, line_size, font_size) %+replace% theme(
+      axis.ticks          = element_blank(),
+      axis.line.x         = element_blank(),
+      axis.line.y         = element_blank(),
+      axis.ticks.length    = grid::unit(0, "pt")
+  )
+}
+
+# data sets
+set.seed(5142)
+
+n <- 15
+x <- rnorm(n)
+y <- .4*x + .6*rnorm(n)
+df_scatter_xy <- data.frame(x, y)
+
+df_one_dist <- data.frame(x = c(rnorm(1000, 1., 1.6), rnorm(300, 4, .4)))
+
+df_one_normal <- data.frame(x = rnorm(20))
+
+df_fractions <- data.frame(y = c(.3, .39, .48, .6, .25, .13, .22, .24, .45, .48, .3, .16),
+                 x = factor(rep(1:4, 3)),
+                 type = rep(c("A", "B", "C"), each = 4))
+
+
+set.seed(2474)
+
+n <- 8
+x <- rnorm(n)
+y <- .4*x + .6*rnorm(n)
+z <- .5*x + .3*rnorm(n)
+z <- (z - min(z) + 0.1)^2
+df_scatter_xyz <- data.frame(x, y, z)
+
+
+set.seed(5012)
+df_multi_amounts <- mutate(df_fractions,
+                           y = c(1.0, 1.1, 1.4, 1.2)[x]*y)
+
+n <- 70
+df_multi_dist <- data.frame(y = c(rnorm(n, 1, .8), rnorm(n, 2, .7), rnorm(n, 0, .5)),
+                 type = rep(c("A", "B", "C"), each = n),
+                 number = rep(c(2, 1, 3), each = n))
+
+
+df_props = data.frame(value = c(55, 30, 15),
+                      group = c("A", "B", "C"))
+
+df_multi_props <- data.frame(
+  var1 = rep(c("C", "B", "A"), 3),
+  var2 = rep(c("A", "B", "C"), each = 3),
+  count = c(4, 1, 2, 12, 9, 5, 4, 5, 4)
+) %>% group_by(var2) %>%
+  mutate(group_count = sum(count))
+
+df_multi_props2 <- data.frame(
+  var1 = rep(c("B", "A"), 9),
+  var2 = rep(c("E", "E", "D", "D", "C", "C"), 3),
+  var3 = rep(c("H", "G", "F"), each = 6),
+  count = c(5, 8, 0, 0, 0, 0, 0, 3, 2, 7, 0, 0, 4, 0, 4, 2, 7, 4)
+)
+
+df_sets <- gather_set_data(df_multi_props2, 1:3)
+
+df_one_line <- data.frame(
+  x = 1:5,
+  y = c(3.1, 3.3, 4.0, 3.8, 4.4)
+)
+
+set.seed(9681)
+n1 <- 1500/5
+n2 <- 800/5
+x1 <- rnorm(n1, 0, .7)
+y1 <- 2 * x1 + rnorm(n1, 0, .8)
+
+x2 <- rnorm(n2, 0, 0.4)
+y2 <- 1.5 * x2 + rnorm(n2, .5, .8)
+
+df_dense_scatter <- na.omit(
+  data.frame(
+    x = scales::censor(c(x1, x2 + 2.2), c(-2, 4)),
+    y = scales::censor(c(y1, y2 + 1.5), c(-3.5, 4.5))
+  )
+)
+
+y1 <- 2 * x1 + rnorm(n1, 0, 1.6)
+y2 <- 1.5 * x2 + rnorm(n2, .5, 1.6)
+df_dense_scatter_sample <- na.omit(
+  data.frame(
+    x = scales::censor(c(x1, x2 + 2.2), c(-2, 4)),
+    y = scales::censor(c(y1, y2 + 1.5), c(-3.5, 4.5))
+  )
+) %>% sample_n(50)
+
+df_connected_scatter <- data.frame(
+  x = c(1.9, 1.5, 2.2, 3, 3.3, 2.7, 1.7, 1),
+  y = c(0.3, -1, -2.0, -0.9, .6, 1.8, 2, 0.7),
+  t = 1:8
+)
+
+df_paired <- data.frame(
+  y = c(6, 5.3, 3.8, 2.8, 2,
+        4.3, 6.1, 5.1, 3.3, 2.4),
+  x = rep(c("A", "B"), each = 5),
+  group = rep(1:5, 2)
+)
+
+df_uncertain <- data.frame(
+  type = c("A", "B", "C"),
+  x = c(1.5, 2.2, 3.4),
+  y = c(3.2, 5.1, 3.9),
+  dx = c(.25, .3, .35),
+  dy = c(.5, .4, .6)
+)
+
+
+# palettes
+
+npal <- 5
+# earth-brown (Amounts)
+pal_earth_brown <- sequential_hcl(n = npal, h1 = 71, c1 = 80, c2 = 10, l1 = 18, l2 = 97, p1 = 1.5)
+
+# brown-green (Proportions)
+pal_brown_green <- sequential_hcl(n = npal, h1 = 86, c1 = 80, c2 = 10, l1 = 18, l2 = 97, p1 = 1.5)
+
+# green-brown (Geospatial data)
+pal_green_brown <- sequential_hcl(n = npal, h1 = -265, c1 = 80, c2 = 10, l1 = 18, l2 = 97, p1 = 1.5)
+
+# burgundy-red 
+pal_red_brown <- sequential_hcl(n = npal, h1 = 28, c1 = 80, c2 = 10, l1 = 18, l2 = 97, p1 = 1.5)
+
+# brown-red (Uncertainty)
+pal_brown_red <- sequential_hcl(n = npal, h1 = 41, c1 = 80, c2 = 10, l1 = 18, l2 = 97, p1 = 1.5)
+
+# ocean-blue (Distributions)
+pal_ocean_blue <- sequential_hcl(n = npal, h1 = 241, c1 = 80, c2 = 10, l1 = 18, l2 = 97, p1 = 1.5)
+
+# steel-blue (x-y relationships)
+pal_steel_blue <- sequential_hcl(n = npal, h1 = 257, c1 = 80, c2 = 10, l1 = 18, l2 = 97, p1 = 1.5)
+pal_steel_blue_inv <- sequential_hcl(n = npal, h1 = 257-180, c1 = 80, c2 = 10, l1 = 18, l2 = 97, p1 = 1.5)
+```
+
+## Amounts
+
+```{r amounts, fig.width = 5*6/4.2, fig.asp = 1/4}
+palette <- pal_earth_brown
+
+p1 <- ggplot(df_props, aes(x = group, y = value)) + 
+  geom_col(
+    position="identity", color = palette[npal],
+    fill = palette[3], width = 0.8
+  ) +
+  scale_y_continuous(limits = c(0, 66), expand = c(0, 0)) +
+  scale_fill_manual(values = palette[2:4]) +
+  labs(title = "Bars") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+p2 <- ggplot(df_props, aes(x = fct_rev(group), y = value)) + 
+  geom_col(position="identity", color = palette[npal], fill = palette[3],
+           width = .8) +
+  scale_y_continuous(limits = c(0, 66), expand = c(0, 0)) +
+  scale_fill_manual(values = palette[2:4]) +
+  coord_flip() +
+  labs(title = "Bars") +
+  theme_plot_icon_vgrid(palette[npal], palette[1])
+
+p3 <- ggplot(filter(df_multi_amounts, x!=4), aes(x, y,
+                                   fill=factor(type, levels = c("A", "C", "B")))) + 
+  geom_col(position="dodge", color = palette[npal],
+           width = .7) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0, .7)) +
+  scale_fill_manual(values = palette[2:4]) +
+  labs(title = "Grouped Bars") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+p4 <- ggplot(filter(df_multi_amounts, x!=4), aes(x, y,
+                                   fill=factor(type, levels = c("B", "C", "A")))) + 
+  geom_col(position="dodge", color = palette[npal],
+           width = .7) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0, .7)) +
+  scale_fill_manual(values = rev(palette[2:4])) +
+  coord_flip() +
+  labs(title = "Grouped Bars") +
+  theme_plot_icon_vgrid(palette[npal], palette[1])
+
+p5 <- ggplot(df_multi_amounts, aes(x, y, fill=factor(type, levels = c("B", "C", "A")))) + 
+  geom_col(position="stack", color = palette[npal]) +
+  scale_y_continuous(limits = c(0, 1.55),
+                     expand = c(0, 0)) +
+  scale_fill_manual(values = rev(palette[2:4])) +
+  labs(title = "Stacked Bars") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+p6 <- p5 + coord_flip() + theme_plot_icon_vgrid(palette[npal], palette[1])
+
+p7 <- ggplot(df_props, aes(x = fct_rev(group), y = value)) + 
+  geom_point(color = palette[2], size = 2) +
+  scale_y_continuous(limits = c(0, 66), expand = c(0, 0)) +
+  coord_flip() + 
+  labs(title = "Dots") +
+  theme_plot_icon_vgrid(palette[npal], palette[1])
+
+p8 <- ggplot(filter(df_multi_amounts, x != 1), aes(x, y = factor(type, levels = c("A", "C", "B")), fill = y)) + 
+  geom_tile(color = palette[5], size = 1.5) +
+  scale_fill_continuous_sequential(
+    h1 = 71, c1 = 80, c2 = 10, l1 = 18, l2 = 97, p1 = 1.5,
+    begin = 0.2, end = 0.75,
+    rev = FALSE
+  ) +
+  labs(title = "Heatmap") +
+  theme_plot_icon_blank(palette[npal], palette[1])
+
+plot_grid(p1, p2, p7, ncol = 4, scale = .9)
+```
+
+::: notes
+The most common approach to visualizing amounts (i.e., numerical values shown for some set of categories) is using bars, either vertically or horizontally arranged (Chapter \@ref(visualizing-amounts)). However, instead of using bars, we can also place dots at the location where the corresponding bar would end (Chapter \@ref(visualizing-amounts)).
+:::
+
+## Amounts: part 2
+```{r amounts_multi, fig.width = 5*6/4.2, fig.asp = 1/2}
+plot_grid(p3, p4, p5, p6, 
+          p8, ncol = 4, scale = .9)
+```
+
+::: notes
+If there are two or more sets of categories for which we want to show amounts, we can group or stack the bars (Chapter \@ref(visualizing-amounts)). We can also map the categories onto the *x* and *y* axis and show amounts by color, via a heatmap (Chapter \@ref(visualizing-amounts)). 
+:::
+
+## Distributions
+
+```{r single-distributions, fig.width = 5*6/4.2, fig.asp = 1/4}
+
+palette <- pal_ocean_blue
+
+p1 <- ggplot(df_one_dist, aes(x)) +
+  geom_histogram(fill = palette[3], color = palette[npal], binwidth = 1, center = 0) +
+  scale_x_continuous(limits = c(-4.8, 6.8), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, 350), 
+                     expand = c(0, 0)) +
+  labs(title = "Histogram") +
+  theme_plot_icon(palette[npal], palette[1])
+
+
+p2 <- ggplot(df_one_dist, aes(x)) +
+  geom_density(fill = palette[3], color = palette[npal], bw = .35) +
+  scale_x_continuous(limits = c(-4.8, 6.8), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(0, .27), expand = c(0, 0)) +
+  labs(title = "Density Plot") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p3 <- ggplot(df_one_normal, aes(x)) +
+  stat_ecdf(color = palette[2], size = .7) +
+  scale_x_continuous(expand = c(0.05, 0)) +
+  scale_y_continuous(limits = c(0, 1.08), expand = c(0, 0)) +
+  labs(title = "Cumulative Density") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p4 <- ggplot(df_one_normal, aes(sample = x)) +
+  geom_abline(intercept = 0, slope = 1, color = palette[3]) +
+  geom_qq(color = palette[1], size = 0.8) +
+  labs(title = "Quantile-Quantile Plot") +
+  theme_plot_icon(palette[npal], palette[1])
+
+plot_grid(p1, p2, p3, p4, ncol = 4, scale = .9)
+```
+::: notes
+Histograms and density plots (Chapter \@ref(histograms-density-plots)) provide the most intuitive visualizations of a distribution, but both require arbitrary parameter choices and can be misleading. Cumulative densities and quantile-quantile (q-q) plots (Chapter \@ref(ecdf-qq)) always represent the data faithfully but can be more difficult to interpret.
+:::
+
+## Distributions: part 2
+
+```{r multiple-distributions, fig.width = 5*6/4.2, fig.asp = 1/2}
+palette <- pal_ocean_blue
+
+p1 <- ggplot(df_multi_dist, aes(x = type, y = y)) + 
+  geom_boxplot(color = palette[1], fill = palette[4]) +
+  labs(title = "Boxplots") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+p2 <- ggplot(df_multi_dist, aes(x = type, y = y)) + 
+  geom_violin(color = palette[npal], fill = palette[2], size = 0) +
+  labs(title = "Violins") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+df_multi_dist_small <- group_by(df_multi_dist, type) %>%
+  sample_n(50)
+
+p3 <- ggplot(df_multi_dist_small, aes(x = type, y = y)) + 
+  geom_jitter(color = palette[1], width = 0.15, height = 0, size = .3) +
+  labs(title = "Strip Charts") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+p4 <- ggplot(df_multi_dist_small, aes(x = type, y = y)) + 
+  dviz.supp::stat_sina(color = palette[1], size = 0.3) +
+  labs(title = "Sina Plots") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+p5 <- ggplot(df_multi_dist, aes(x = y, fill = factor(type, levels = c("C", "A", "B")))) + 
+  geom_histogram(color = palette[npal], binwidth = 0.5, center = 0) +
+  scale_fill_manual(values = palette[2:4]) +
+  labs(title = "Stacked Histograms") +
+  scale_x_continuous() +
+  scale_y_continuous(limits = c(0, 49), expand = c(0, 0)) +
+  theme_plot_icon(palette[npal], palette[1])
+
+p6 <- ggplot(df_multi_dist, aes(x = y, fill = factor(type, levels = c("C", "A", "B")))) + 
+  geom_density(alpha = 0.7, color = palette[npal]) +
+  scale_fill_manual(values = palette[1:3]) +
+  labs(title = "Overlapping Densities") +
+  scale_x_continuous() +
+  scale_y_continuous(limits = c(0, 1.1), expand = c(0, 0)) +
+  theme_plot_icon(palette[npal], palette[1])
+
+p7 <- ggplot(df_multi_dist, aes(x = y, y = number, group = number)) + 
+  geom_density_ridges(alpha = 0.7, color = palette[npal], fill = palette[2], scale = 2.5) +
+  labs(title = "Ridgeline Plot") +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(limits = c(1, 6.5), expand = c(0, 0)) +
+  theme_plot_icon(palette[npal], palette[1])
+
+
+plot_grid(p1, p2, p3, p4, 
+          p5, p6, p7, ncol = 4, scale = .9)
+```
+
+::: notes
+Boxplots, violins, strip charts, and sina plots are useful when we want to visualize many distributions at once and/or if we are primarily interested in overall shifts among the distributions (Chapter \@ref(boxplots-violins-vertical)). Stacked histograms and overlapping densities allow a more in-depth comparison of a smaller number of distributions, though stacked histograms can be difficult to interpret and are best avoided (Chapter \@ref(multiple-histograms-densities)). Ridgeline plots can be a useful alternative to violin plots and are often useful when visualizing very large numbers of distributions or changes in distributions over time (Chapter \@ref(boxplots-violins-horizontal)).
+:::
+
+## Proportions
+
+```{r proportions, fig.width = 5*6/4.2, fig.asp = 1/4}
+palette <- pal_brown_green
+
+p1_main <- ggplot(df_props, aes(x = 1, y = value, fill = group)) + 
+  geom_col(position = "stack", color = palette[npal]) + 
+  coord_polar(theta = "y") +
+  scale_y_continuous(breaks = NULL, name = "") +
+  scale_x_continuous(breaks = NULL, name = "") +
+  scale_fill_manual(values = palette[2:4]) +
+  theme_plot_icon_blank(palette[npal], palette[1]) +
+  theme(plot.margin = margin(0, 0, 0, 0))
+
+# make sure plot background is fully filled, as in the other plots
+p1 <- ggdraw(p1_main) +
+  labs(title = "Pie Chart") +
+  theme_plot_icon_blank(palette[npal], palette[1])
+
+p2 <- ggplot(df_props, aes(x = factor(1), y = value, fill = group)) + 
+  geom_col(position = position_stack(reverse = TRUE), width = .45, color = palette[npal]) + 
+  scale_y_continuous(limits = c(0, 108), expand = c(0, 0)) +
+  scale_fill_manual(values = palette[2:4]) +
+  labs(title = "Stacked Bars") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+p3 <- ggplot(df_props, aes(x = factor(1), y = value, fill = group)) + 
+  geom_col(position = position_stack(reverse = TRUE), width = .45, color = palette[npal]) + 
+  #scale_y_continuous(limits = c(0, 110), expand = c(0, 0), position = "right") +
+  scale_y_continuous(limits = c(0, 110), expand = c(0, 0)) +
+  coord_flip() +
+  scale_fill_manual(values = palette[2:4]) +
+  labs(title = "Stacked Bars") +
+  theme_plot_icon_vgrid(palette[npal], palette[1])
+
+p4 <- ggplot(df_props, aes(x = group, y = value, fill = group)) + 
+  geom_col(position="identity", color = palette[npal],
+           width = .8) +
+  scale_y_continuous(limits = c(0, 66), expand = c(0, 0)) +
+  scale_fill_manual(values = palette[2:4]) +
+  labs(title = "Bars") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+p5 <- ggplot(df_props, aes(x = fct_rev(group), y = value, fill = group)) + 
+  geom_col(position="identity", color = palette[npal],
+           width = .8) +
+  scale_y_continuous(limits = c(0, 66), expand = c(0, 0)) +
+  scale_fill_manual(values = palette[2:4]) +
+  coord_flip() +
+  labs(title = "Bars") +
+  theme_plot_icon_vgrid(palette[npal], palette[1])
+
+
+plot_grid(p1, p4, p5, p2, ncol = 4, scale = .9)
+```
+
+::: notes
+Proportions can be visualized as pie charts, side-by-side bars, or stacked bars (Chapter \@ref(visualizing-proportions)), and as in the case for amounts, bars can be arranged either vertically or horizontally. Pie charts emphasize that the individual parts add up to a whole and highlight simple fractions. However, the individual pieces are more easily compared in side-by-side bars. Stacked bars look awkward for a single set of proportions, but can be useful when comparing multiple sets of proportions (see below).
+:::
+
+## Proportions: part 2
+
+```{r proportions-comp, fig.width = 5*6/4.2, fig.asp = 1/4}
+p5 <- ggplot(filter(df_fractions, x!=4), aes(x, y,
+                                   fill=factor(type, levels = c("A", "C", "B")))) + 
+  geom_col(position="dodge", color = palette[npal],
+           width = .7) +
+  scale_y_continuous(expand = c(0, 0),
+                     limits = c(0, .58)) +
+  scale_fill_manual(values = palette[2:4]) +
+  labs(title = "Grouped Bars") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+p6 <- ggplot(df_fractions, aes(x, y, fill=type)) + 
+  geom_col(position="stack", color = palette[npal]) +
+  scale_y_continuous(limits = c(0, 1.08), expand = c(0, 0)) +
+  scale_fill_manual(values = palette[2:4]) +
+  labs(title = "Stacked Bars") +
+  theme_plot_icon_hgrid(palette[npal], palette[1])
+
+p7 <- ggplot(df_multi_dist, aes(x = y, fill = factor(type, levels = c("C", "A", "B")))) + 
+  geom_density(color = palette[npal], position = "fill") +
+  scale_fill_manual(values = palette[2:4]) +
+  scale_x_continuous(expand = c(0.04, 0)) +
+  scale_y_continuous(limits = c(0, 1.08), expand = c(0, 0)) +
+  labs(title = "Stacked Densities") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p8_a <- ggplot(filter(df_fractions, x==1), aes(x = 1, y = y, fill = type)) + 
+  geom_col(position = "stack", color = palette[npal]) + 
+  coord_polar(theta = "y") +
+  scale_y_continuous(breaks = NULL, name = "") +
+  scale_x_continuous(breaks = NULL, name = "") +
+  scale_fill_manual(values = palette[c(2, 1, 3)]) +
+  theme_plot_icon_blank(palette[npal], palette[1], font_size = 5) +
+  theme(
+    plot.background = element_blank(),
+    plot.margin = margin(0, 0, 0, 0)
+  )
+
+p8_b <- ggplot(filter(df_fractions, x==2), aes(x = 1, y = y, fill = type)) + 
+  geom_col(position = "stack", color = palette[npal]) + 
+  coord_polar(theta = "y") +
+  scale_y_continuous(breaks = NULL, name = "") +
+  scale_x_continuous(breaks = NULL, name = "") +
+  scale_fill_manual(values = palette[c(2, 1, 3)]) +
+  theme_plot_icon_blank(palette[npal], palette[1], font_size = 5) +
+  theme(
+    plot.background = element_blank(),
+    plot.margin = margin(0, 0, 0, 0)
+  )
+
+p8_c <- ggplot(filter(df_fractions, x==3), aes(x = 1, y = y, fill = type)) + 
+  geom_col(position = "stack", color = palette[npal]) + 
+  coord_polar(theta = "y") +
+  scale_y_continuous(breaks = NULL, name = "") +
+  scale_x_continuous(breaks = NULL, name = "") +
+  scale_fill_manual(values = palette[c(2, 1, 3)]) +
+  theme_plot_icon_blank(palette[npal], palette[1], font_size = 5) +
+  theme(
+    plot.background = element_blank(),
+    plot.margin = margin(0, 0, 0, 0)
+  )
+
+
+# combine
+p8 <- plot_grid(p8_a, p8_b, p8_c, ncol = 3, scale = 1.1) +
+      labs(title = "Multiple Pie Charts") +
+      theme_plot_icon_blank(palette[npal], palette[1])
+
+plot_grid(p8, p5, p6, p7, ncol = 4, scale = .9)
+```
+
+::: notes
+When visualizing multiple sets of proportions or changes in proportions across conditions, pie charts tend to be space-inefficient and often obscure relationships. Grouped bars work well as long as the number of conditions compared is moderate, and stacked bars can work for large numbers of conditions. Stacked densities (Chapter \@ref(visualizing-proportions)) are appropriate when the proportions change along a continuous variable.
+:::
+
+## Proportions: part 3
+
+```{r proportions-multi, fig.width = 5*6/4.2, fig.asp = 1/4}
+p1 <- ggplot(df_multi_props, aes(x = var2, y = count, fill = var1, width = group_count)) +
+  geom_bar(stat = "identity", position = "fill", colour = palette[npal], size = 0.5) +
+  facet_grid(~var2, scales = "free_x", space = "free_x") +
+  scale_x_discrete(name = NULL, breaks = NULL) +
+  scale_y_continuous(name = NULL, breaks = NULL, expand = c(0, 0)) +
+  scale_fill_manual(values = palette[4:2], guide = "none") +
+  coord_cartesian(clip = "off") +
+  labs(title = "Mosaic Plot") +
+  theme_plot_icon_blank(palette[npal], palette[1]) +
+  theme(
+    strip.text = element_blank(),
+    panel.spacing.x = unit(0, "pt")
+  )
+  
+p2 <- ggplot(df_multi_props, aes(area = count, subgroup = var2, fill = var2)) +
+  geom_treemap(color = palette[npal], size = 0.5*.pt, alpha = NA) + 
+  geom_treemap_subgroup_border(color = palette[npal], size = 1.5*.pt) +
+  scale_fill_manual(values = palette[4:2], guide = "none") +
+  coord_cartesian(clip = "off") +
+  labs(title = "Treemap") +
+  theme_plot_icon_blank(palette[npal], palette[1]) 
+
+p3 <- ggplot(df_sets, aes(x, id = id, split = y, value = count)) +
+  geom_parallel_sets(aes(fill = var1), alpha = 0.7, axis.width = 0.15) +
+  geom_parallel_sets_axes(axis.width = 0.06, fill = palette[2], color = palette[2]) +
+  scale_x_discrete(
+    name = NULL,
+    breaks = NULL,
+    expand = c(0, 0.15/2)
+  ) +
+  scale_y_continuous(breaks = NULL, expand = c(0, 0)) +
+  scale_fill_manual(values = c(palette[3], palette[2]), guide = "none") +
+  labs(title = "Parallel Sets") +
+  theme_plot_icon_blank(palette[npal], palette[1])
+
+plot_grid(p1, p2, p3, ncol = 4, scale = .9)
+```
+
+::: notes
+When proportions are specified according to multiple grouping variables, then mosaic plots, treemaps, or parallel sets are useful visualization approaches
+(Chapter \@ref(nested-proportions)). Mosaic plots assume that every level of one grouping variable can be combined with every level of another grouping variable, whereas treemaps do not make such an assumption. Treemaps work well even if the subdivisions of one group are entirely distinct from the subdivisions of another. Parallel sets work better than either mosaic plots or treemaps when there are more than two grouping variables.
+:::
+
+## *x*--*y* relationships
+
+```{r basic-scatter, fig.width = 5*6/4.2, fig.asp = 1/4}
+palette <- pal_steel_blue
+
+p1 <- ggplot(df_scatter_xy, aes(x, y)) + 
+  geom_point(fill = palette[2], color = palette[npal], pch = 21, size = 2.4) + 
+  scale_x_continuous(expand = c(.2, 0)) +
+  scale_y_continuous(expand = c(.2, 0)) +
+  labs(title = "Scatterplot") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p2 <- ggplot(df_scatter_xyz, aes(x, y, size = z)) + 
+  geom_point(fill = palette[2], color = palette[npal], pch = 21, alpha = 0.7) + 
+  scale_x_continuous(expand = c(.2, 0)) +
+  scale_y_continuous(expand = c(.2, 0)) +
+  scale_radius(range = c(2, 8)) +
+  labs(title = "Bubble Chart") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p3 <- ggplot(spread(df_paired, x, y), aes(A, B)) + 
+  geom_abline(slope = 1, intercept = 0, color = palette[3], size = 0.3) + 
+  geom_point(
+    shape = 21, size = 2.4, stroke = 1,
+    fill = palette[2], color = palette[npal]
+  ) +
+  scale_x_continuous(limits = c(1.5, 6.5)) +
+  scale_y_continuous(limits = c(1.5, 6.5)) +
+  labs(title = "Paired Scatterplot") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p4 <- ggplot(df_paired, aes(x, y, group = group)) + 
+  geom_line(color = palette[1]) + 
+  geom_point(
+    shape = 21, size = 2.4, stroke = 1,
+    fill = palette[2], color = palette[npal]
+  ) +
+  scale_x_discrete(expand = c(0, 0.4)) +
+  scale_y_continuous(limits = c(1.5, 6.5)) +
+  labs(title = "Slopegraph") +
+  theme_plot_icon(palette[npal], palette[1]) +
+  theme(
+    axis.line.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+
+plot_grid(p1, p2, p3, p4, ncol = 4, scale = .9)
+```
+
+::: notes
+Scatterplots represent the archetypical visualization when we want to show one quantitative variable relative to another (Chapter \@ref(associations-scatterplots)). If we have three quantitative variables, we can map one onto the dot size, creating a variant of the scatterplot called bubble chart. For paired data, where the variables along the *x* and the *y* axes are measured in the same units, it is generally helpful to add a line indicating *x* = *y* (Chapter \@ref(associations-paired-data)). Paired data can also be shown as a slope graph of paired points connected by straight lines (Chapter \@ref(associations-paired-data)).
+:::
+
+## *x*--*y* relationships: part 2
+```{r xy-binning, fig.width = 5*6/4.2, fig.asp = 1/4}
+p5 <- ggplot(df_dense_scatter, aes(x, y)) + 
+  geom_density2d(binwidth = 0.02, color = palette[1]) +
+  scale_x_continuous(limits = c(-2, 3.6), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(-4, 5), expand = c(0, 0)) +
+  labs(title = "Density Contours") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p6 <- ggplot(df_dense_scatter, aes(x, y)) + 
+  geom_bin2d(bins = 12, color = palette[npal], size = 0.5) +
+  scale_x_continuous(limits = c(-2, 3.6), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(-4, 5), expand = c(0, 0)) +
+  scale_fill_gradientn(colors = palette[1:(npal-1)]) +
+  labs(title = "2D Bins") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p7 <- ggplot(df_dense_scatter, aes(x, y)) + 
+  geom_hex(bins = 12, color = palette[npal], size = 0.5) +
+  scale_x_continuous(limits = c(-2, 3.6), expand = c(0, 0)) +
+  scale_y_continuous(limits = c(-4, 5), expand = c(0, 0)) +
+  scale_fill_gradientn(colors = palette[1:(npal-1)]) +
+  labs(title = "Hex Bins") +
+  theme_plot_icon(palette[npal], palette[1])
+
+cm <- cor(select(mtcars, mpg, hp, drat, wt, qsec))
+df_wide <- as.data.frame(cm)
+df_long <- stack(df_wide)
+names(df_long) <- c("cor", "var1")
+df_long <- cbind(df_long, var2 = rep(rownames(cm), length(rownames(cm))))
+clust <- hclust(as.dist(1-cm), method="average") 
+levels <- clust$labels[clust$order]
+df_long$var1 <- factor(df_long$var1, levels = levels)
+df_long$var2 <- factor(df_long$var2, levels = levels)
+p8 <- ggplot(filter(df_long, as.integer(var1) < as.integer(var2)),
+       aes(var1, var2, fill=cor, size = abs(cor))) + 
+  geom_point(shape = 21, stroke = 0) + 
+  scale_x_discrete(position = "top", name = NULL, expand = c(0, 0.5)) +
+  scale_y_discrete(name = NULL, expand = c(0, 0.5)) +
+  scale_size_area(max_size = 8, limits = c(0, 0.9), guide = "none") +
+  scale_fill_gradient2(high = palette[2], mid = palette[npal], low = pal_steel_blue_inv[2], guide = "none") +
+  labs(title = "Correlogram") +
+  theme_plot_icon(palette[npal], palette[1])
+
+
+plot_grid(p5, p6, p7, p8, ncol = 4, scale = .9)
+```
+
+::: notes
+For large numbers of points, regular scatterplots can become uninformative due to overplotting. In this case, contour lines, 2D bins, or hex bins may provide an alternative (Chapter \@ref(overlapping-points)). When we want to visualize more than two quantities, on the other hand, we may choose to plot correlation coefficients in the form of a correlogram instead of the underlying raw data (Chapter \@ref(associations-correlograms)).
+:::
+## *x*--*y* relationships: part 3
+
+```{r xy-lines, fig.width = 5*6/4.2, fig.asp = 1/4}
+p1 <- ggplot(df_one_line, aes(x, y)) +
+  geom_line(color = palette[1]) + 
+  geom_point(
+    shape = 21, size = 2.4, stroke = 1,
+    fill = palette[2], color = palette[npal]
+  ) +
+  scale_x_continuous(limits = c(0.5, 5.5), breaks = c(1, 3, 5)) +
+  scale_y_continuous(limits = c(2.8, 4.8)) +
+  labs(title = "Line Graph") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p2 <- ggplot(df_connected_scatter, aes(x, y, color = t, fill = t)) +
+  geom_path() +
+  geom_point(
+    shape = 21, size = 2.4, stroke = 1,
+    color = palette[npal]
+  ) +
+  scale_color_gradientn(
+    aesthetics = c("colour", "fill"),
+    colors = palette[(npal-2):1]
+  ) +
+  scale_x_continuous(limits = c(0.3, 3.7)) +
+  scale_y_continuous(limits = c(-2.5, 2.5)) +
+  labs(title = "Connected Scatterplot") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p3 <- ggplot(df_dense_scatter_sample, aes(x, y)) +
+  geom_point(color = palette[2], size = 0.3, alpha = 1/2) +
+  geom_smooth(
+    color = palette[1],
+    fill = palette[npal-2],
+    size = 0.5,
+    se = FALSE
+  ) +
+  scale_y_continuous(limits = c(-5, 5)) +
+  labs(title = "Smooth Line Graph") +
+  theme_plot_icon(palette[npal], palette[1])
+
+plot_grid(p1, p2, p3, ncol = 3, scale = 0.95)
+```
+
+::: notes
+When the *x* axis represents time or a strictly increasing quantity such as a treatment dose, we commonly draw line graphs (Chapter \@ref(time-series)). If we have a temporal sequence of two response variables, we can draw a connected scatterplot where we first plot the two response variables in a scatterplot and then connect dots corresponding to adjacent time points (Chapter \@ref(time-series-connected-scatter)). We can use smooth lines to represent trends in a larger dataset (Chapter \@ref(visualizing-trends)). 
+:::
+
+## Geospatial data {#directory-geospatial-data}
+
+```{r geospatial, fig.width = 5*6/4.2, fig.asp = 1/4}
+palette <- pal_green_brown
+
+lower48 <- mutate(
+  US_income,
+  income_bins = cut(
+    ifelse(is.na(median_income), 25000, median_income), # hide missing value
+    breaks = c(0, 40000, 50000, 60000, 70000, 80000)
+  )
+) %>% filter(!name %in% c("Alaska", "Hawaii", "District of Columbia"))
+
+
+p1_main <- ggplot(lower48) +
+  geom_sf(color = palette[1], fill = palette[4], size = 0.3) +
+  coord_sf(datum = NA, expand = FALSE) +
+  scale_x_continuous(limits = c(-2500000, 100000)) +
+  scale_y_continuous(limits = c(-900000, 1558935)) +
+  theme_plot_icon_blank(palette[npal], palette[1]) +
+  theme(
+    plot.margin = margin(2, 5, 3, 5)
+  )
+
+# make sure plot background is fully filled, as in the other plots
+p1 <- ggdraw(p1_main) +
+  labs(title = "Map") +
+  theme_plot_icon_blank(palette[npal], palette[1])
+
+
+p2_main <- ggplot(lower48, aes(fill = income_bins)) +
+  geom_sf(color = palette[1], size = 0.2) +
+  coord_sf(datum = NA, expand = FALSE) +
+  scale_x_continuous(limits = c(-2500000, 100000)) +
+  scale_y_continuous(limits = c(-900000, 1558935)) +
+  scale_fill_manual(values = palette) +
+  theme_plot_icon_blank(palette[npal], palette[1]) +
+  theme(
+    plot.margin = margin(2, 5, 3, 5)
+  )
+
+p2 <- ggdraw(p2_main) +
+  labs(title = "Choropleth") +
+  theme_plot_icon_blank(palette[npal], palette[1])
+
+lower48_carto <- mutate(
+  US_income_cartogram,
+  income_bins = cut(
+    ifelse(is.na(median_income), 25000, median_income), # hide missing value
+    breaks = c(0, 40000, 50000, 60000, 70000, 80000)
+  )
+) %>% filter(!name %in% c("Alaska", "Hawaii", "District of Columbia"))
+
+p3_main <- ggplot(lower48_carto, aes(fill = income_bins)) +
+  geom_sf(color = palette[1], size = 0.2) +
+  coord_sf(datum = NA, expand = FALSE) +
+  scale_x_continuous(limits = c(-2500000, 100000)) +
+  scale_y_continuous(limits = c(-1000000, 1458935)) +
+  scale_fill_manual(values = palette) +
+  theme_plot_icon_blank(palette[npal], palette[1]) +
+  theme(
+    plot.margin = margin(2, 5, 3, 5)
+  )
+
+p3 <- ggdraw(p3_main) +
+  labs(title = "Cartogram") +
+  theme_plot_icon_blank(palette[npal], palette[1])
+
+lower48_small <- filter(lower48, GEOID %in% c(
+  "04", "06", "08", "16", "20", "30", "31", "32", "35", "38", "41", "46", "49", "53", "56"))
+
+p4_main <- ggplot(lower48_small, aes(state = name, fill = income_bins)) +
+  geom_statebins(
+    family = dviz.supp::dviz_font_family,
+    lbl_size = 8/.pt,
+    border_size = 1.,
+    border_col = palette[npal]
+  ) +
+  coord_equal(xlim = c(1.5, 5.5), ylim = c(-2.5, -6.5), expand = FALSE, clip = "off") +
+  scale_fill_manual(values = palette[2:5]) +
+  theme_plot_icon_blank(palette[npal], palette[1]) +
+  theme(
+    plot.margin = margin(2, 0, 0, 7)
+  )
+
+p4 <- ggdraw(p4_main) + labs(title = "Cartogram Heatmap") +
+  theme_plot_icon_blank(palette[npal], palette[1])
+
+plot_grid(p1, p2, p3, p4, scale = 0.9, nrow = 1)
+```
+
+::: notes
+The primary mode of showing geospatial data is in the form of a map (Chapter \@ref(geospatial-data)). A map takes coordinates on the globe and projects them onto a flat surface, such that shapes and distances on the globe are approximately represented by shapes and distances in the 2D representation. In addition, we can show data values in different regions by coloring those regions in the map according to the data. Such a map is called a choropleth (Chapter \@ref(choropleth-mapping)). In some cases, it may be helpful to distort the different regions according to some other quantity (e.g., population number) or simplify each region into a square. Such visualizations are called cartograms.
+
+:::
+## Uncertainty {#directory-uncertainty}
+
+```{r errorbars, fig.width = 5*6/4.2, fig.asp = 1/4}
+palette <- pal_brown_red
+
+p1 <- ggplot(df_uncertain, aes(y, type)) +
+  geom_errorbarh(
+    aes(xmin = y-dy, xmax = y+dy),
+    color = palette[1], height = 0.2, size = 0.5
+  ) +
+  geom_point(
+    color = palette[1],
+    size = 2
+  ) +
+  labs(title = "Error Bars") +
+  theme_plot_icon(palette[npal], palette[1]) +
+  theme(
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+p2 <- ggplot(df_uncertain, aes(type, y)) +
+  geom_col(fill = palette[3], width = 0.8) +
+  geom_segment(
+    aes(xend = type, y = y-dy, yend = y+dy),
+    color = palette[1],
+    size = 0.7
+  ) +
+  scale_y_continuous(limits = c(0, 6), expand = c(0, 0)) +
+  labs(title = "Error Bars") +
+  theme_plot_icon(palette[npal], palette[1]) +
+  theme(
+    axis.line.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )
+
+p3 <- ggplot(df_uncertain, aes(y, type)) +
+  geom_errorbarh(
+    aes(xmin = y-2.58*dy, xmax = y+2.58*dy), # 99% CI
+    color = palette[3], height = 0, size = 0.5
+  ) +
+  geom_errorbarh(
+    aes(xmin = y-1.96*dy, xmax = y+1.96*dy), # 95% CI
+    color = palette[2], height = 0, size = 1
+  ) +
+  geom_errorbarh(
+    aes(xmin = y-1.28*dy, xmax = y+1.28*dy), # 80% CI
+    color = palette[1], height = 0, size = 1.5
+  ) +
+  #geom_errorbarh(
+  #  aes(xmin = y-dy, xmax = y+dy),
+  #  color = palette[1], height = 0.1, size = 0.5
+  #) +
+  geom_point(
+    color = palette[1],
+    size = 2
+  ) +
+  labs(title = "Graded Error Bars") +
+  theme_plot_icon(palette[npal], palette[1]) +
+  theme(
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+p4 <- ggplot(df_uncertain, aes(x, y)) +
+  geom_point(color = palette[1], size = 2) +
+  geom_segment(
+    aes(xend = x, y = y-dy, yend = y+dy),
+    color = palette[1],
+    size = 0.7
+  ) +
+  geom_segment(
+    aes(yend = y, x = x-dx, xend = x+dx),
+    color = palette[1],
+    size = 0.7
+  ) +
+  scale_x_continuous(limits = c(1, 4)) +
+  scale_y_continuous(limits = c(2, 6)) +
+  labs(title = "2D Error Bars") +
+  theme_plot_icon(palette[npal], palette[1])
+  
+
+
+plot_grid(p1, p2, p4, p3, ncol = 4, scale = .9)
+  
+```
+
+::: notes
+Error bars are meant to indicate the range of likely values for some estimate or measurement. They extend horizontally and/or vertically from some reference point representing the estimate or measurement (Chapter \@ref(visualizing-uncertainty)). Reference points can be shown in various ways, such as by dots or by bars. Graded 
+error bars show multiple ranges at the same time, where each range corresponds to a different degree of confidence. They are in effect multiple error bars with different line thicknesses plotted on top of each other.
+:::
+
+## Uncertainty: part 2
+
+```{r confidence-dists, fig.width = 5*6/4.2, fig.asp = 1/4}
+
+p1 <- ggplot(df_uncertain, aes(y, type)) +
+  stat_confidence_density(aes(moe = dy), fill = palette[3], height = 0.6, confidence = 0.68) +
+  scale_x_continuous(limits = c(1.6, 6.4), expand = c(0, 0)) +
+  scale_y_discrete(expand = c(0, 1)) +
+  labs(title = "Confidence Strips") +
+  theme_plot_icon(palette[npal], palette[1]) +
+  theme(
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+
+p2 <- ggplot(df_uncertain, aes(y, type)) +
+  geom_ribbon(
+    data = filter(df_uncertain, type == "A"),
+    aes(moe = dy, ymin = 1 - .5*stat(density), ymax = 1 + .5*stat(density)),
+    stat = "confidence_density",
+    fill = palette[3], color = NA, alpha = NA, confidence = 0.68
+  ) +
+  geom_ribbon(
+    data = filter(df_uncertain, type == "B"),
+    aes(moe = dy, ymin = 2 - .5*stat(density), ymax = 2 + .5*stat(density)),
+    stat = "confidence_density",
+    fill = palette[3], color = NA, alpha = NA, confidence = 0.68
+  ) +
+  geom_ribbon(
+    data = filter(df_uncertain, type == "C"),
+    aes(moe = dy, ymin = 3 - .5*stat(density), ymax = 3 + .5*stat(density)),
+    stat = "confidence_density",
+    fill = palette[3], color = NA, alpha = NA, confidence = 0.68
+  ) +
+  geom_errorbarh(
+    aes(xmin = y-1.28*dy, xmax = y+1.28*dy), 
+    color = palette[1], height = 0, size = 0.5
+  ) +
+  geom_point(
+    color = palette[1],
+    size = 2
+  ) +
+  scale_x_continuous(limits = c(1.6, 6.4), expand = c(0, 0)) +
+  scale_y_discrete(expand = expand_scale(add = c(0.8, 0.8))) +
+  labs(title = "Eyes") +
+  theme_plot_icon(palette[npal], palette[1]) +
+  theme(
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+p3 <- ggplot(df_uncertain, aes(y, type)) +
+  stat_confidence_density(
+    aes(moe = dy, height = .9*stat(density)),
+    geom = "ridgeline",
+    fill = palette[3], color = NA, alpha = NA, confidence = 0.68
+  ) +
+  geom_errorbarh(
+    aes(xmin = y-1.28*dy, xmax = y+1.28*dy),
+    color = palette[1], height = 0, size = 0.5
+  ) +
+  geom_point(
+    color = palette[1],
+    size = 2
+  ) +
+  scale_x_continuous(limits = c(1.6, 6.4), expand = c(0, 0)) +
+  scale_y_discrete(expand = expand_scale(add = c(0.2, 0.8))) +
+  labs(title = "Half-Eyes") +
+  theme_plot_icon(palette[npal], palette[1]) +
+  theme(
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+df_norm <- data.frame(
+  x = seq(-3, 3, length.out = 100),
+  y = dnorm(seq(-3, 3, length.out = 100))
+)
+df_q <- data.frame(x = qnorm(ppoints(20)))
+
+p4 <- ggplot(df_q, aes(x)) +
+  geom_line(data = df_norm, aes(x, .36*y), color = palette[1], na.rm = FALSE, size = 0.25) + # factor .36 manually determined
+  geom_dotplot(binwidth = .4, fill = palette[3], color = palette[1]) +
+  scale_x_continuous(
+    limits = c(-2.8, 2.8),
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    expand = c(0.02, 0),
+    limits = c(0, 0.4)
+  ) +
+  labs(title = "Quantile Dot Plot") +
+  theme_plot_icon(palette[npal], palette[1]) +
+  theme(
+    axis.line.y = element_blank(),
+    axis.ticks.y = element_blank()
+  )
+
+plot_grid(p1, p2, p3, p4, ncol = 4, scale = .9)
+  
+```
+
+::: notes
+To achieve a more detailed visualization than is possible with error bars or graded error bars, we can visualize the actual confidence or posterior distributions (Chapter \@ref(visualizing-uncertainty)). Confidence strips provide a clear visual sense of uncertainty but are difficult to read accurately. Eyes and half-eyes combine error bars with approaches to visualize distributions (violins and ridgelines, respectively), and thus show both precise ranges for some confidence levels and the overall uncertainty distribution. A quantile dot plot can serve as an alternative visualization of an uncertainty distribution (Chapter \@ref(frequency-framing)). By showing the distribution in discrete units, the quantile dot plot is not as precise but can be easier to read than the continuous distribution shown by a violin or ridgeline plot.
+:::
+
+## Uncertainty: part 3
+
+```{r confidence-bands, fig.width = 5*6/4.2, fig.asp = 1/4}
+p1 <- ggplot(df_dense_scatter_sample, aes(x, y)) +
+  geom_smooth(
+    color = palette[1],
+    fill = palette[npal-2],
+    size = 0.5,
+    level = 0.95
+  ) +
+  scale_y_continuous(limits = c(-5, 5)) +
+  labs(title = "Confidence Band") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p2 <- ggplot(df_dense_scatter_sample, aes(x, y)) +
+  geom_smooth(color = NA, fill = palette[npal-1], level = 0.99) +
+  geom_smooth(color = NA, fill = palette[npal-2], level = 0.95) +
+  geom_smooth(
+    color = palette[1],
+    fill = palette[npal-3],
+    size = 0.5,
+    level = 0.8
+  ) +
+  scale_y_continuous(limits = c(-5, 5)) +
+  labs(title = "Graded Confidence Band") +
+  theme_plot_icon(palette[npal], palette[1])
+
+p3 <- ggplot(df_dense_scatter_sample, aes(x, y)) +
+  stat_smooth_draws(
+    times = 8,
+    aes(group = stat(.draw)),
+    color = palette[1],
+    size = 0.15
+  ) +
+  scale_y_continuous(limits = c(-5, 5)) +
+  labs(title = "Fitted Draws") +
+  theme_plot_icon(palette[npal], palette[1])
+
+#plot_grid(p1, p2, p3, ncol = 4, scale = 1)
+p1 + p2 + p3
+```
+
+::: notes
+For smooth line graphs, the equivalent of an error bar is a confidence band (Chapter \@ref(uncertainty-curve-fits)). It shows a range of values the line might pass through at a given confidence level. As in the case of error bars, we can draw graded confidence bands that show multiple confidence levels at once. We can also show individual fitted draws in lieu of or in addition to the confidence bands.
+:::

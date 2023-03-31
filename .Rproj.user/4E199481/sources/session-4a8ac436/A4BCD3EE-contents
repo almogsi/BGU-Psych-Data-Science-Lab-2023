@@ -1,0 +1,93 @@
+---
+title: "Psychological Data Science Lab"
+subtitle: "L1: Overfitting, Cross-Validation, and Regularization"
+footer: "Psychological Data Science Lab L1" 
+author: Almog Simchon
+format:
+  revealjs:
+    incremental: true
+    slide-number: true
+    logo: misc/just-logo.png
+    chalkboard: true
+---
+
+## Introduction {.smaller}
+* Overfitting is a common problem in machine learning, where a model is too complex and begins to fit the noise in the data instead of the underlying pattern. This results in a model that performs very well on the training data, but poorly on new, unseen data. 
+
+* Cross-validation is a technique used to estimate the performance of a model on new, unseen data. Regularization is a technique used to prevent overfitting by adding a penalty term to the model's objective function.
+
+* Let's examine this ourselves, shall we?
+
+## Generate Data
+Let's start by generating some random data that we will use throughout this tutorial.
+
+```{r generate-data}
+#| echo: true
+# Load necessary packages
+library(tidyverse)
+library(glmnet)
+library(caret)
+
+set.seed(123)
+x <- seq(-5, 5, length.out = 30)
+y <- x + rnorm(30, mean = 0, sd = 3)
+
+df <- tibble(x = x, y = y)
+```
+
+## Overfitting {.smaller}
+* We'll start by creating an overfit model using the `lm` function in R. To do this, we'll fit a polynomial model with a high degree (i.e., too complex for the data).
+
+```{r overfit-model}
+#| echo: true
+#| output-location: slide
+# Create design matrix with polynomial features up to degree 30
+poly_x = poly(x, degree = 30, raw = TRUE) |> 
+  as_tibble()
+
+df_poly <- df |> 
+  bind_cols(poly_x)
+
+# Fit model with glm function
+fit <- lm(y ~ as.matrix(poly_x))
+
+# Plot the data and the fitted model
+df_poly |> 
+  ggplot(aes(x = x, y = y)) +
+  geom_point() +
+  geom_line(aes(y = predict(fit)), color = "red", size = 1) +
+  ggtitle("Overfit Model")
+
+```
+
+* We can see from the plot that the model fits the training data very well, but it is too complex and does not capture the underlying pattern in the data. This will likely result in poor performance on new, unseen data.
+
+## Cross-Validation
+* To estimate the performance of our model on new, unseen data, we'll use cross-validation. We'll use 5-fold cross-validation, where we split the data into 5 equal parts, and use each part as the validation set while the remaining parts are used for training.
+
+## Cross-Validation Code
+```{r cross-validation}
+#| echo: true
+#| output-location: slide
+# Create train control object for 5-fold cross-validation
+train_control <- trainControl(method = "cv", number = 5)
+
+# Fit a regularized regression model using glmnet
+fit_cv <- train(y ~ ., data = select(df_poly, -x), 
+                method = "glmnet", 
+                trControl = train_control,
+                tuneGrid = expand.grid(.alpha = 1,
+                                       .lambda = seq(from = 0.001,
+                                                     to = 1,
+                                                     by = 0.1)))
+
+# Plot the cross-validation results
+plot(fit_cv)
+```
+
+## In Class exercise:
+
+* Split into groups (2-3 students per group)
+* Generate or load any dataset of your choosing
+* Overfit your model
+* Regularize your model using different regularization parameters
